@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
           month: "short",
           day: "numeric",
           year: "numeric",
+          timeZone: "UTC",
         }),
         attendanceCount: c._count.attendance,
         scheduleId: targetSchedule.id,

@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { getUserScope } from "@/lib/scope";
 import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const scope = await getUserScope();
+  if (!scope) return NextResponse.json({ classes: [], facilitatorBirthdays: [], studentBirthdays: [], courseEvents: [] });
+
   const { searchParams } = new URL(request.url);
   const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
   const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString());
@@ -9,128 +13,103 @@ export async function GET(request: NextRequest) {
   const startOfMonth = new Date(year, month - 1, 1);
   const endOfMonth = new Date(year, month, 0, 23, 59, 59);
 
-  // Get classes for this month
+  // Get all schedules for label lookups
+  const allSchedules = await prisma.schedule.findMany();
+  const scheduleLabelMap = new Map(allSchedules.map((s) => [s.id, s.label]));
+
+  // Classes for this month (filtered by scope)
+  const classWhere: any = { date: { gte: startOfMonth, lte: endOfMonth } };
+  if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
+    classWhere.scheduleId = { in: scope.scheduleIds };
+  }
+
   const classes = await prisma.class.findMany({
-    where: {
-      date: { gte: startOfMonth, lte: endOfMonth },
-    },
-    include: {
-      schedule: true,
-    },
+    where: classWhere,
     orderBy: { date: "asc" },
   });
 
-  // Get facilitator birthdays for this month
-  const facilitators = await prisma.facilitator.findMany({
-    where: {
-      birthday: { not: null },
-    },
-    include: {
-      tables: {
-        include: { schedule: true },
-      },
-    },
+  // Group classes by day
+  const classEvents = new Map<number, { topics: Set<string>; schedules: string[] }>();
+  classes.forEach((c) => {
+    const day = c.date.getUTCDate();
+    if (!classEvents.has(day)) classEvents.set(day, { topics: new Set(), schedules: [] });
+    const entry = classEvents.get(day)!;
+    entry.topics.add(c.topic || c.name);
+    const label = scheduleLabelMap.get(c.scheduleId) || "Unknown";
+    if (!entry.schedules.includes(label)) entry.schedules.push(label);
   });
 
-  const facilitatorBirthdays = facilitators
+  const classEventsList = Array.from(classEvents.entries()).map(([day, data]) => ({
+    day, topics: Array.from(data.topics), schedules: data.schedules, type: "class" as const,
+  }));
+
+  // Facilitator birthdays
+  const allFacilitators = await prisma.facilitator.findMany({
+    where: { birthday: { not: null } },
+    include: { tables: true },
+  });
+
+  const facilitatorBirthdays = allFacilitators
     .filter((f) => {
       if (!f.birthday) return false;
-      return f.birthday.getUTCMonth() + 1 === month;
+      if (f.birthday.getUTCMonth() + 1 !== month) return false;
+      if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
+        return f.tables.some((t) => scope.scheduleIds.includes(t.scheduleId));
+      }
+      return true;
     })
     .map((f) => ({
       id: f.id,
       name: f.name,
       day: f.birthday!.getUTCDate(),
       type: "facilitator_birthday" as const,
-      schedule: f.tables[0]?.schedule?.label || null,
+      schedule: f.tables[0] ? scheduleLabelMap.get(f.tables[0].scheduleId) || null : null,
     }));
 
-  // Get student birthdays for this month
-  const students = await prisma.student.findMany({
-    where: {
-      birthdate: { not: null },
-    },
+  // Student birthdays
+  const studentWhere: any = { birthdate: { not: null } };
+  if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
+    studentWhere.table = { scheduleId: { in: scope.scheduleIds } };
+  }
+  if (scope.role === "FACILITATOR" && scope.tableIds.length > 0) {
+    studentWhere.tableId = { in: scope.tableIds };
+  }
+
+  const allStudents = await prisma.student.findMany({
+    where: studentWhere,
     include: {
       table: {
-        include: {
-          facilitator: true,
-          schedule: true,
-        },
+        include: { facilitator: true },
       },
     },
   });
 
-  const studentBirthdays = students
-    .filter((s) => {
-      if (!s.birthdate) return false;
-      return s.birthdate.getUTCMonth() + 1 === month;
-    })
+  const studentBirthdays = allStudents
+    .filter((s) => s.birthdate && s.birthdate.getUTCMonth() + 1 === month)
     .map((s) => ({
       id: s.id,
       name: `${s.firstName} ${s.lastName}`,
       day: s.birthdate!.getUTCDate(),
       type: "student_birthday" as const,
       facilitator: s.table.facilitator.name,
-      schedule: s.table.schedule.label,
+      schedule: scheduleLabelMap.get(s.table.scheduleId) || null,
     }));
 
-  // Get active course for start/end dates
-  const course = await prisma.course.findFirst({
-    where: { isActive: true },
-  });
-
+  // Course events (visible to all roles)
+  const course = await prisma.course.findFirst({ where: { isActive: true } });
   const courseEvents: any[] = [];
   if (course) {
-    const startMonth = course.startDate.getMonth() + 1;
-    const startYear = course.startDate.getFullYear();
-    const endMonth = course.endDate.getMonth() + 1;
-    const endYear = course.endDate.getFullYear();
-
-    if (startMonth === month && startYear === year) {
-      courseEvents.push({
-        id: `course-start-${course.id}`,
-        name: `${course.name} starts`,
-        day: course.startDate.getDate(),
-        type: "course_start" as const,
-      });
+    const sm = course.startDate.getMonth() + 1;
+    const sy = course.startDate.getFullYear();
+    const em = course.endDate.getMonth() + 1;
+    const ey = course.endDate.getFullYear();
+    if (sm === month && sy === year) {
+      courseEvents.push({ id: `course-start-${course.id}`, name: `${course.name} starts`, day: course.startDate.getDate(), type: "course_start" });
     }
-    if (endMonth === month && endYear === year) {
-      courseEvents.push({
-        id: `course-end-${course.id}`,
-        name: `${course.name} ends`,
-        day: course.endDate.getDate(),
-        type: "course_end" as const,
-      });
+    if (em === month && ey === year) {
+      courseEvents.push({ id: `course-end-${course.id}`, name: `${course.name} ends`, day: course.endDate.getDate(), type: "course_end" });
     }
   }
 
-  // Group classes by day and deduplicate topics
-  const classEvents = new Map<number, { topics: Set<string>; schedules: string[] }>();
-  classes.forEach((c) => {
-    const day = c.date.getDate();
-    if (!classEvents.has(day)) {
-      classEvents.set(day, { topics: new Set(), schedules: [] });
-    }
-    const entry = classEvents.get(day)!;
-    entry.topics.add(c.topic || c.name);
-    if (!entry.schedules.includes(c.schedule.label)) {
-      entry.schedules.push(c.schedule.label);
-    }
-  });
-
-  const classEventsList = Array.from(classEvents.entries()).map(([day, data]) => ({
-    day,
-    topics: Array.from(data.topics),
-    schedules: data.schedules,
-    type: "class" as const,
-  }));
-
-  return NextResponse.json({
-    year,
-    month,
-    classes: classEventsList,
-    facilitatorBirthdays,
-    studentBirthdays,
-    courseEvents,
-  });
+  return NextResponse.json({ classes: classEventsList, facilitatorBirthdays, studentBirthdays, courseEvents });
 }

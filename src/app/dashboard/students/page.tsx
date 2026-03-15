@@ -4,11 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { StudentForm } from "@/components/student-form";
 import { DeleteConfirm } from "@/components/delete-confirm";
-import {
-  createStudent,
-  updateStudent,
-  deleteStudent,
-} from "@/app/actions/students";
+import { createStudent, updateStudent, deleteStudent } from "@/app/actions/students";
 
 interface StudentData {
   id: string;
@@ -24,17 +20,8 @@ interface StudentData {
   scheduleLabel: string;
 }
 
-interface TableOption {
-  id: string;
-  name: string;
-  facilitatorName: string;
-  scheduleLabel: string;
-}
-
-interface ScheduleOption {
-  id: string;
-  label: string;
-}
+interface TableOption { id: string; name: string; facilitatorName: string; scheduleLabel: string; }
+interface ScheduleOption { id: string; label: string; }
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentData[]>([]);
@@ -42,7 +29,8 @@ export default function StudentsPage() {
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filter, setFilter] = useState("all");
+  const [scheduleFilter, setScheduleFilter] = useState("all");
+  const [facilitatorFilter, setFacilitatorFilter] = useState("all");
   const [search, setSearch] = useState("");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -61,15 +49,32 @@ export default function StudentsPage() {
       });
   }
 
+  useEffect(() => { fetchData(); }, []);
+
+  // Get unique facilitator names based on current schedule filter
+  const facilitatorNames = useMemo(() => {
+    let filtered = students;
+    if (scheduleFilter !== "all") {
+      filtered = filtered.filter((s) => s.scheduleLabel === scheduleFilter);
+    }
+    const names = [...new Set(filtered.map((s) => s.facilitatorName))];
+    return names.sort();
+  }, [students, scheduleFilter]);
+
+  // Reset facilitator filter when schedule changes
   useEffect(() => {
-    fetchData();
-  }, []);
+    setFacilitatorFilter("all");
+  }, [scheduleFilter]);
 
   const filtered = useMemo(() => {
     let result = students;
 
-    if (filter !== "all") {
-      result = result.filter((s) => s.scheduleLabel === filter);
+    if (scheduleFilter !== "all") {
+      result = result.filter((s) => s.scheduleLabel === scheduleFilter);
+    }
+
+    if (facilitatorFilter !== "all") {
+      result = result.filter((s) => s.facilitatorName === facilitatorFilter);
     }
 
     if (search.trim()) {
@@ -78,51 +83,30 @@ export default function StudentsPage() {
         (s) =>
           s.firstName.toLowerCase().includes(q) ||
           s.lastName.toLowerCase().includes(q) ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
           s.facilitatorName.toLowerCase().includes(q) ||
           (s.phone && s.phone.includes(q))
       );
     }
 
     return result;
-  }, [students, filter, search]);
+  }, [students, scheduleFilter, facilitatorFilter, search]);
 
-  const filterOptions = [
-    { key: "all", label: "All schedules" },
-    ...schedules.map((s) => ({
-      key: s.label,
-      label: s.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
-    })),
-  ];
-
-  function handleAdd() {
-    setEditData(null);
-    setFormOpen(true);
-  }
+  function handleAdd() { setEditData(null); setFormOpen(true); }
 
   function handleEdit(s: StudentData) {
     setEditData({
-      studentId: s.id,
-      firstName: s.firstName,
-      lastName: s.lastName,
-      birthdate: s.birthdate || "",
-      phone: s.phone || "",
-      address: s.address || "",
-      tableId: s.tableId,
+      studentId: s.id, firstName: s.firstName, lastName: s.lastName,
+      birthdate: s.birthdate || "", phone: s.phone || "",
+      address: s.address || "", tableId: s.tableId,
     });
     setFormOpen(true);
   }
 
-  function handleDeleteClick(s: StudentData) {
-    setDeleteTarget(s);
-    setDeleteOpen(true);
-  }
+  function handleDeleteClick(s: StudentData) { setDeleteTarget(s); setDeleteOpen(true); }
 
   async function handleFormSubmit(data: any) {
-    if (data.studentId) {
-      await updateStudent(data);
-    } else {
-      await createStudent(data);
-    }
+    if (data.studentId) { await updateStudent(data); } else { await createStudent(data); }
     fetchData();
   }
 
@@ -146,125 +130,84 @@ export default function StudentsPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-medium text-gray-900">Students</h1>
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          <Plus size={14} />
-          Add student
+        <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors">
+          <Plus size={14} /> Add student
         </button>
       </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1 max-w-xs">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search students..."
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400"
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {filterOptions.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => setFilter(opt.key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${
-                filter === opt.key
-                  ? "bg-gray-100 font-medium text-gray-900 border-gray-200"
-                  : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      {/* Search */}
+      <div className="relative max-w-xs mb-3">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, facilitator, or phone..." className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
       </div>
+
+      {/* Schedule Filters */}
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <button onClick={() => setScheduleFilter("all")} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === "all" ? "bg-gray-100 font-medium text-gray-900 border-gray-200" : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}>
+          All schedules
+        </button>
+        {schedules.map((s) => (
+          <button key={s.id} onClick={() => setScheduleFilter(s.label)} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === s.label ? "bg-gray-100 font-medium text-gray-900 border-gray-200" : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}>
+            {s.label.replace("Wednesday", "Wed").replace("Sunday", "Sun")}
+          </button>
+        ))}
+      </div>
+
+      {/* Facilitator Filter */}
+      {facilitatorNames.length > 1 && (
+        <div className="mb-4">
+          <select
+            value={facilitatorFilter}
+            onChange={(e) => setFacilitatorFilter(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white"
+          >
+            <option value="all">All facilitators ({facilitatorNames.length})</option>
+            {facilitatorNames.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Count */}
       <p className="text-xs text-gray-400 mb-3">
         {filtered.length} student{filtered.length !== 1 ? "s" : ""}
-        {filter !== "all" && ` in ${filter}`}
+        {scheduleFilter !== "all" && ` in ${scheduleFilter}`}
+        {facilitatorFilter !== "all" && ` · ${facilitatorFilter}`}
         {search && ` matching "${search}"`}
       </p>
 
-      {/* Students Table */}
+      {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        {/* Desktop Table */}
         <div className="hidden md:block">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">
-                  Name
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">
-                  Schedule
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">
-                  Facilitator
-                </th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">
-                  Phone
-                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Schedule</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Facilitator</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Phone</th>
                 <th className="w-20"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-10 text-center text-sm text-gray-400"
-                  >
-                    {students.length === 0
-                      ? "No students enrolled yet. Add your first student to get started."
-                      : "No students match your search."}
-                  </td>
-                </tr>
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">
+                  {students.length === 0 ? "No students enrolled yet. Add your first student to get started." : "No students match your filters."}
+                </td></tr>
               ) : (
                 filtered.map((student) => (
-                  <tr
-                    key={student.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition-colors group"
-                  >
-                    <td className="px-4 py-2.5 text-sm text-gray-900">
-                      {student.firstName} {student.lastName}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">
-                      {student.scheduleLabel}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">
-                      {student.facilitatorName}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">
-                      {student.phone || "—"}
-                    </td>
+                  <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors group">
+                    <td className="px-4 py-2.5 text-sm text-gray-900">{student.firstName} {student.lastName}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.scheduleLabel}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.facilitatorName}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.phone || "—"}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                        <button
-                          onClick={() => handleEdit(student)}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(student)}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Edit"><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -274,70 +217,31 @@ export default function StudentsPage() {
           </table>
         </div>
 
-        {/* Mobile Cards */}
         <div className="md:hidden divide-y divide-gray-100">
           {filtered.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-gray-400">
-              {students.length === 0
-                ? "No students enrolled yet. Add your first student to get started."
-                : "No students match your search."}
+              {students.length === 0 ? "No students enrolled yet." : "No students match your filters."}
             </div>
           ) : (
             filtered.map((student) => (
               <div key={student.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {student.firstName} {student.lastName}
-                  </p>
+                  <p className="text-sm font-medium text-gray-900">{student.firstName} {student.lastName}</p>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleEdit(student)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(student)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><Pencil size={13} /></button>
+                    <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {student.scheduleLabel} · {student.facilitatorName}
-                </p>
-                {student.phone && (
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {student.phone}
-                  </p>
-                )}
+                <p className="text-xs text-gray-500">{student.scheduleLabel} · {student.facilitatorName}</p>
+                {student.phone && <p className="text-xs text-gray-400 mt-0.5">{student.phone}</p>}
               </div>
             ))
           )}
         </div>
       </div>
 
-      {/* Add / Edit Modal */}
-      <StudentForm
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSubmit={handleFormSubmit}
-        tables={tables}
-        initialData={editData}
-      />
-
-      {/* Delete Confirmation */}
-      <DeleteConfirm
-        open={deleteOpen}
-        onClose={() => {
-          setDeleteOpen(false);
-          setDeleteTarget(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        title="Delete student"
-        message={`Are you sure you want to delete ${deleteTarget?.firstName} ${deleteTarget?.lastName}? Their attendance records will also be deleted.`}
-      />
+      <StudentForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleFormSubmit} tables={tables} initialData={editData} />
+      <DeleteConfirm open={deleteOpen} onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }} onConfirm={handleDeleteConfirm} title="Delete student" message={`Are you sure you want to delete ${deleteTarget?.firstName} ${deleteTarget?.lastName}? Their attendance records will also be deleted.`} />
     </div>
   );
 }
