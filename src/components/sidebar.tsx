@@ -13,6 +13,7 @@ import {
   Monitor,
   Calendar,
   UserCircle,
+  Shield,
   LogOut,
   Menu,
   X,
@@ -26,6 +27,7 @@ const navItems = [
   { label: "Courses", href: "/dashboard/courses", icon: Monitor },
   { label: "Calendar", href: "/dashboard/calendar", icon: Calendar },
   { label: "Facilitators", href: "/dashboard/facilitators", icon: UserCircle },
+  { label: "Users", href: "/dashboard/users", icon: Shield },
 ];
 
 interface SidebarProps {
