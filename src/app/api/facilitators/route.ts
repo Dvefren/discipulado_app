@@ -21,19 +21,30 @@ export async function GET() {
   });
 
   if (!course) {
-    return NextResponse.json([]);
+    return NextResponse.json({ groups: [], schedules: [] });
   }
 
   const groups = course.schedules.map((schedule) => ({
+    id: schedule.id,
     label: schedule.label,
     facilitators: schedule.tables.map((table) => ({
       id: table.facilitator.id,
       name: table.facilitator.name,
+      birthday: table.facilitator.birthday
+        ? table.facilitator.birthday.toISOString().split("T")[0]
+        : null,
+      tableId: table.id,
       tableName: table.name,
       studentCount: table._count.students,
+      scheduleId: schedule.id,
       scheduleLabel: schedule.label,
     })),
   }));
 
-  return NextResponse.json(groups);
+  const schedules = course.schedules.map((s) => ({
+    id: s.id,
+    label: s.label,
+  }));
+
+  return NextResponse.json({ groups, schedules });
 }
