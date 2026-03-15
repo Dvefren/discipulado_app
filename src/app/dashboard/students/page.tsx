@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import Link from "next/link";
 import { StudentForm } from "@/components/student-form";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import { createStudent, updateStudent, deleteStudent } from "@/app/actions/students";
@@ -200,7 +201,7 @@ export default function StudentsPage() {
               ) : (
                 filtered.map((student) => (
                   <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors group">
-                    <td className="px-4 py-2.5 text-sm text-gray-900">{student.firstName} {student.lastName}</td>
+                    <td className="px-4 py-2.5 text-sm"><Link href={`/dashboard/students/${student.id}`} className="text-gray-900 hover:text-purple-600 transition-colors">{student.firstName} {student.lastName}</Link></td>
                     <td className="px-4 py-2.5 text-sm text-gray-500">{student.scheduleLabel}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-500">{student.facilitatorName}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-500">{student.phone || "—"}</td>
@@ -226,7 +227,7 @@ export default function StudentsPage() {
             filtered.map((student) => (
               <div key={student.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-gray-900">{student.firstName} {student.lastName}</p>
+                  <Link href={`/dashboard/students/${student.id}`} className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">{student.firstName} {student.lastName}</Link>
                   <div className="flex items-center gap-1">
                     <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><Pencil size={13} /></button>
                     <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>

@@ -1,170 +1,198 @@
-import { prisma } from "@/lib/prisma";
-import { getUserScope } from "@/lib/scope";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function DashboardHome() {
-  const scope = await getUserScope();
-  if (!scope) redirect("/login");
+import { useState, useEffect } from "react";
+import { Users, UserCircle, Calendar, TrendingUp } from "lucide-react";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
+} from "recharts";
 
-  const course = await prisma.course.findFirst({
-    where: { isActive: true },
-    include: {
-      schedules: {
-        include: {
-          tables: {
-            include: {
-              facilitator: true,
-              _count: { select: { students: true } },
-            },
-          },
-          _count: { select: { classes: true } },
-        },
-      },
-    },
-  });
+interface Stats {
+  courseName: string;
+  startDate: string;
+  endDate: string;
+  totalStudents: number;
+  totalFacilitators: number;
+  scheduleCount: number;
+  overallAttendance: number | null;
+  attendanceTrend: { className: string; date: string; present: number; total: number; percent: number }[];
+  studentsPerSchedule: { schedule: string; students: number }[];
+  topFacilitators: { name: string; schedule: string; students: number; percent: number }[];
+  recentClasses: { name: string; date: string; schedule: string; present: number; total: number }[];
+  role: string;
+}
 
-  if (!course) {
+export default function DashboardHome() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => { if (!data.empty) setStats(data); setLoading(false); });
+  }, []);
+
+  if (loading) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-400 text-sm">No active course found.</p>
+        <p className="text-sm text-gray-400">Loading dashboard...</p>
       </div>
     );
   }
 
-  // Filter schedules by scope
-  let schedules = course.schedules;
-  if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
-    schedules = schedules.filter((s) => scope.scheduleIds.includes(s.id));
-  }
-
-  // For facilitators, also filter tables
-  let totalStudents: number;
-  let totalFacilitators: number;
-
-  if (scope.role === "FACILITATOR" && scope.tableIds.length > 0) {
-    totalStudents = schedules.reduce(
-      (sum, s) => sum + s.tables
-        .filter((t) => scope.tableIds.includes(t.id))
-        .reduce((ts, t) => ts + t._count.students, 0),
-      0
-    );
-    totalFacilitators = schedules.reduce(
-      (sum, s) => sum + s.tables.filter((t) => scope.tableIds.includes(t.id)).length,
-      0
-    );
-  } else {
-    totalStudents = schedules.reduce(
-      (sum, s) => sum + s.tables.reduce((ts, t) => ts + t._count.students, 0),
-      0
-    );
-    totalFacilitators = schedules.reduce(
-      (sum, s) => sum + s.tables.length,
-      0
+  if (!stats) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-sm text-gray-400">No active course found.</p>
+      </div>
     );
   }
-
-  const startDate = course.startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endDate = course.endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-  const isAdmin = scope.role === "ADMIN";
-  const pageTitle = isAdmin
-    ? course.name
-    : `${course.name} — ${schedules.map((s) => s.label).join(", ")}`;
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-medium text-gray-900">{isAdmin ? course.name : schedules[0]?.label || course.name}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {course.name} · {startDate} - {endDate}
-          </p>
+          <h1 className="text-lg font-medium text-gray-900">{stats.courseName}</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{stats.startDate} - {stats.endDate}</p>
         </div>
-        <div className="px-3 py-1 rounded-lg bg-green-50 text-xs font-medium text-green-800">Active</div>
+        <div className="px-3 py-1 rounded-lg bg-green-50 text-xs font-medium text-green-700">Active</div>
       </div>
 
-      {/* Stats */}
+      {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Total students" value={totalStudents} />
-        <StatCard label={scope.role === "FACILITATOR" ? "My tables" : "Facilitators"} value={totalFacilitators} />
-        <StatCard label="Schedules" value={schedules.length} />
-        <StatCard label="Avg. attendance" value="--" />
+        <StatCard icon={Users} label="Total students" value={stats.totalStudents} />
+        <StatCard icon={UserCircle} label="Facilitators" value={stats.totalFacilitators} />
+        <StatCard icon={Calendar} label="Schedules" value={stats.scheduleCount} />
+        <StatCard
+          icon={TrendingUp}
+          label="Avg. attendance"
+          value={stats.overallAttendance !== null ? `${stats.overallAttendance}%` : "--"}
+          highlight={stats.overallAttendance !== null}
+        />
       </div>
 
-      {/* Schedules (only show for admin and leaders) */}
-      {(isAdmin || scope.role === "SCHEDULE_LEADER") && (
-        <>
-          <h2 className="text-[15px] font-medium text-gray-900 mb-3">
-            {isAdmin ? "Schedules" : "My schedule"}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {schedules.map((schedule) => {
-              const facilitatorNames = schedule.tables.map((t) => t.facilitator.name);
-              const displayNames = facilitatorNames.slice(0, 2).join(", ");
-              const remaining = facilitatorNames.length - 2;
-
-              return (
-                <div key={schedule.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition-colors cursor-pointer">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">{schedule.label}</span>
-                    <span className="text-xs text-gray-400">{schedule.tables.length} tables</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {displayNames}{remaining > 0 && `, +${remaining} more`}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Facilitator's own table info */}
-      {scope.role === "FACILITATOR" && scope.tableIds.length > 0 && (
-        <>
-          <h2 className="text-[15px] font-medium text-gray-900 mb-3">My table</h2>
-          {schedules.map((schedule) =>
-            schedule.tables
-              .filter((t) => scope.tableIds.includes(t.id))
-              .map((table) => (
-                <div key={table.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">{table.name}</span>
-                    <span className="text-xs text-gray-400">{table._count.students} students</span>
-                  </div>
-                  <p className="text-xs text-gray-500">{schedule.label}</p>
-                </div>
-              ))
-          )}
-        </>
-      )}
-
-      {/* Secretary's schedule info */}
-      {scope.role === "SECRETARY" && (
-        <>
-          <h2 className="text-[15px] font-medium text-gray-900 mb-3">My schedule</h2>
-          {schedules.map((schedule) => (
-            <div key={schedule.id} className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">{schedule.label}</span>
-                <span className="text-xs text-gray-400">{schedule.tables.length} tables</span>
-              </div>
-              <p className="text-xs text-gray-500">
-                {schedule.tables.map((t) => t.facilitator.name).join(", ")}
-              </p>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {/* Attendance Trend */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-4">Attendance trend</h3>
+          {stats.attendanceTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={stats.attendanceTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                  formatter={(value) => [`${value}%`, "Attendance"]}
+                  labelFormatter={(label) => label}
+                />
+                <Line type="monotone" dataKey="percent" stroke="#7c3aed" strokeWidth={2} dot={{ fill: "#7c3aed", r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center">
+              <p className="text-xs text-gray-400">No attendance data yet. Mark attendance to see trends.</p>
             </div>
-          ))}
-        </>
-      )}
+          )}
+        </div>
+
+        {/* Students per Schedule */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-4">Students per schedule</h3>
+          {stats.studentsPerSchedule.some((s) => s.students > 0) ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={stats.studentsPerSchedule} barSize={40}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="schedule" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                  formatter={(value) => [value, "Students"]}
+                />
+                <Bar dataKey="students" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center">
+              <p className="text-xs text-gray-400">No students enrolled yet.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Top Facilitators */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Top facilitators by attendance</h3>
+          {stats.topFacilitators.length > 0 ? (
+            <div className="space-y-2.5">
+              {stats.topFacilitators.map((f, i) => (
+                <div key={f.name} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-4">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-gray-900 truncate">{f.name}</p>
+                      <span className="text-xs font-medium text-purple-600">{f.percent}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${f.percent}%` }} />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{f.schedule} · {f.students} students</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 py-6 text-center">No attendance data yet.</p>
+          )}
+        </div>
+
+        {/* Recent Classes */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Recent classes</h3>
+          {stats.recentClasses.length > 0 ? (
+            <div className="space-y-2">
+              {stats.recentClasses.map((cls, i) => {
+                const percent = cls.total > 0 ? Math.round((cls.present / cls.total) * 100) : 0;
+                return (
+                  <div key={`${cls.name}-${cls.schedule}-${i}`} className="flex items-center gap-3 py-1.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{cls.name}</p>
+                      <p className="text-[10px] text-gray-400">{cls.date} · {cls.schedule}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${percent >= 80 ? "bg-green-500" : percent >= 50 ? "bg-amber-500" : "bg-red-400"}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500 min-w-[40px] text-right">{cls.present}/{cls.total}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 py-6 text-center">No recent attendance data.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number | string }) {
+function StatCard({ icon: Icon, label, value, highlight }: { icon: any; label: string; value: number | string; highlight?: boolean }) {
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-xl font-medium text-gray-900">{value}</p>
+    <div className="bg-gray-50 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon size={14} className="text-gray-400" />
+        <p className="text-xs text-gray-500">{label}</p>
+      </div>
+      <p className={`text-xl font-medium ${highlight ? "text-purple-600" : "text-gray-900"}`}>{value}</p>
     </div>
   );
 }
