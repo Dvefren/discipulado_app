@@ -24,6 +24,21 @@ enum ScheduleDay {
   SUNDAY
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  PREVIEWED
+  RECOVERED
+}
+
+enum AbsentReason {
+  SICK
+  WORK
+  PERSONAL
+  TRAVEL
+  OTHER
+}
+
 // ─── AUTH & USERS ───────────────────────────────────────
 
 model User {
@@ -71,6 +86,7 @@ model Schedule {
   tables      FacilitatorTable[]
   leaders     ScheduleLeader[]
   secretaries Secretary[]
+  attendances Attendance[]
 
   @@unique([courseId, day, time])
 }
@@ -154,16 +170,21 @@ model Student {
 // ─── ATTENDANCE ─────────────────────────────────────────
 
 model Attendance {
-  id          String     @id @default(cuid())
-  present     Boolean    @default(false)
-  studentId   String
-  classId     String
-  markedById  String?    // User who marked attendance
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id                String           @id @default(cuid())
+  status            AttendanceStatus @default(PRESENT)
+  absentReason      AbsentReason?    // Only when status = ABSENT
+  absentNote        String?          // Optional text note for ABSENT
+  altScheduleId     String?          // Which schedule they attended (PREVIEWED/RECOVERED)
+  studentId         String
+  classId           String
+  markedById        String?
 
-  student     Student    @relation(fields: [studentId], references: [id])
-  class       Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  student           Student          @relation(fields: [studentId], references: [id])
+  class             Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  altSchedule       Schedule?        @relation(fields: [altScheduleId], references: [id])
 
   @@unique([studentId, classId])
 }
