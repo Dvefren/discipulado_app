@@ -7,6 +7,16 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
+// Find the first occurrence of a weekday on or after a given date
+// weekday: 0=Sun, 1=Mon, ..., 3=Wed, 6=Sat
+function findFirstDay(startDate: Date, weekday: number): Date {
+  const d = new Date(startDate);
+  while (d.getDay() !== weekday) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
 async function main() {
   console.log("🌱 Seeding database...\n");
 
@@ -35,12 +45,13 @@ async function main() {
   console.log("✓ Admin user created");
 
   // ─── COURSE ────────────────────────────────────────────
+  const courseStartDate = new Date("2026-01-01");
   const course = await prisma.course.create({
     data: {
       name: "Course 1 - 2026",
       year: 2026,
       semester: 1,
-      startDate: new Date("2026-01-01"),
+      startDate: courseStartDate,
       endDate: new Date("2026-06-30"),
       isActive: true,
     },
@@ -48,15 +59,19 @@ async function main() {
   console.log("✓ Course created: Course 1 - 2026");
 
   // ─── SCHEDULES ─────────────────────────────────────────
-// NEW
-  const scheduleData: { day: ScheduleDay; time: string; label: string }[] = [
-    { day: "WEDNESDAY", time: "19:00", label: "Wednesday 7:00 PM" },
-    { day: "SUNDAY", time: "09:00", label: "Sunday 9:00 AM" },
-    { day: "SUNDAY", time: "11:00", label: "Sunday 11:00 AM" },
-    { day: "SUNDAY", time: "13:00", label: "Sunday 1:00 PM" },
+  const scheduleData: {
+    day: ScheduleDay;
+    time: string;
+    label: string;
+    weekday: number; // JS weekday: 0=Sun, 3=Wed
+  }[] = [
+    { day: "WEDNESDAY", time: "19:00", label: "Wednesday 7:00 PM", weekday: 3 },
+    { day: "SUNDAY", time: "09:00", label: "Sunday 9:00 AM", weekday: 0 },
+    { day: "SUNDAY", time: "11:00", label: "Sunday 11:00 AM", weekday: 0 },
+    { day: "SUNDAY", time: "13:00", label: "Sunday 1:00 PM", weekday: 0 },
   ];
 
-  const schedules: Record<string, any> = {};  
+  const schedules: Record<string, { id: string; weekday: number }> = {};
   for (const s of scheduleData) {
     const schedule = await prisma.schedule.create({
       data: {
@@ -66,11 +81,11 @@ async function main() {
         courseId: course.id,
       },
     });
-    schedules[s.label] = schedule;
+    schedules[s.label] = { id: schedule.id, weekday: s.weekday };
   }
   console.log("✓ 4 schedules created");
 
-  // ─── CLASSES (same 21 for each schedule) ───────────────
+  // ─── CLASSES (same 21 for each schedule, correct weekdays) ─
   const classNames = [
     "Introducción",
     "El comienzo de una nueva vida en Cristo",
@@ -95,28 +110,30 @@ async function main() {
     "Resumen general",
   ];
 
-  // Start date: first week of January 2026 (weekly classes)
-  const classStartDate = new Date("2026-01-07");
+  let totalClasses = 0;
+  for (const [scheduleLabel, scheduleInfo] of Object.entries(schedules)) {
+    // Find the first correct weekday on or after the course start
+    const firstClassDate = findFirstDay(new Date(courseStartDate), scheduleInfo.weekday);
 
-  for (const scheduleKey of Object.keys(schedules)) {
-    const schedule = schedules[scheduleKey];
     for (let i = 0; i < classNames.length; i++) {
-      const classDate = new Date(classStartDate);
+      const classDate = new Date(firstClassDate);
       classDate.setDate(classDate.getDate() + i * 7); // weekly
+
       await prisma.class.create({
         data: {
           name: `Sesión ${i + 1}: ${classNames[i]}`,
           date: classDate,
           topic: classNames[i],
-          scheduleId: schedule.id,
+          scheduleId: scheduleInfo.id,
         },
       });
+      totalClasses++;
     }
   }
-  console.log("✓ 84 classes created (21 per schedule)");
+  console.log(`✓ ${totalClasses} classes created (21 per schedule, correct weekdays)`);
 
   // ─── FACILITATORS & TABLES ─────────────────────────────
-  const facilitatorsBySchedule = {
+  const facilitatorsBySchedule: Record<string, string[]> = {
     "Wednesday 7:00 PM": [
       "Francisca Torres",
       "Eliud Tapia",
@@ -151,12 +168,11 @@ async function main() {
   let totalTables = 0;
 
   for (const [scheduleLabel, names] of Object.entries(facilitatorsBySchedule)) {
-    const schedule = schedules[scheduleLabel];
+    const scheduleInfo = schedules[scheduleLabel];
 
     for (let i = 0; i < names.length; i++) {
       const fullName = names[i];
 
-      // Create facilitator
       const facilitator = await prisma.facilitator.create({
         data: {
           name: fullName,
@@ -164,12 +180,11 @@ async function main() {
       });
       totalFacilitators++;
 
-      // Create their table
       await prisma.facilitatorTable.create({
         data: {
           name: `Table ${i + 1}`,
           facilitatorId: facilitator.id,
-          scheduleId: schedule.id,
+          scheduleId: scheduleInfo.id,
         },
       });
       totalTables++;
@@ -184,10 +199,12 @@ async function main() {
   console.log(`   Admin:        admin@discipulado.app`);
   console.log(`   Course:       Course 1 - 2026`);
   console.log(`   Schedules:    4`);
-  console.log(`   Classes:      84 (21 × 4)`);
+  console.log(`   Classes:      ${totalClasses} (21 × 4)`);
   console.log(`   Facilitators: ${totalFacilitators}`);
   console.log(`   Tables:       ${totalTables}`);
   console.log("───────────────────────────────");
+  console.log("\n⚠️  Don't forget to set your admin password:");
+  console.log("   npx tsx scripts/set-admin-password.ts YourPassword");
 }
 
 main()
