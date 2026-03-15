@@ -95,9 +95,9 @@ export default function CoursesPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-gray-900 mb-5">Courses</h1>
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <p className="text-sm text-gray-400">Loading...</p>
+        <h1 className="text-lg font-medium text-foreground mb-5">Courses</h1>
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -106,10 +106,10 @@ export default function CoursesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-gray-900">Courses</h1>
+        <h1 className="text-lg font-medium text-foreground">Courses</h1>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors"
         >
           <Plus size={14} />
           New course
@@ -117,26 +117,26 @@ export default function CoursesPage() {
       </div>
 
       {courses.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <p className="text-sm text-gray-400">No courses yet. Create your first course to get started.</p>
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <p className="text-sm text-muted-foreground">No courses yet. Create your first course to get started.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {courses.map((course) => (
             <div
               key={course.id}
-              className={`bg-white border rounded-xl p-5 transition-colors ${course.isActive ? "border-purple-200 bg-purple-50/30" : "border-gray-200 hover:border-gray-300"}`}
+              className={`bg-card border rounded-xl p-5 transition-colors ${course.isActive ? "border-border" : "border-border hover:border-border"}`}
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-sm font-medium text-gray-900">{course.name}</h2>
+                    <h2 className="text-sm font-medium text-foreground">{course.name}</h2>
                     {course.isActive && (
                       <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[11px] font-medium">Active</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Semester {course.semester} · {course.startFormatted} — {course.endFormatted}
                   </p>
                 </div>
@@ -145,7 +145,7 @@ export default function CoursesPage() {
                   {!course.isActive && (
                     <button
                       onClick={() => handleSetActive(course.id)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-600/10 transition-colors"
                       title="Set as active"
                     >
                       <Check size={12} />
@@ -154,7 +154,7 @@ export default function CoursesPage() {
                   )}
                   <button
                     onClick={() => handleEdit(course)}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                     title="Edit"
                   >
                     <Pencil size={13} />
@@ -162,7 +162,7 @@ export default function CoursesPage() {
                   {!course.isActive && (
                     <button
                       onClick={() => handleDeleteClick(course)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-gray-600 hover:bg-gray-50 transition-colors"
                       title="Delete"
                     >
                       <Trash2 size={13} />
@@ -173,32 +173,32 @@ export default function CoursesPage() {
 
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                  <Calendar size={14} className="text-gray-400" />
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                  <Calendar size={14} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-gray-500">Schedules</p>
-                    <p className="text-sm font-medium text-gray-900">{course.scheduleCount}</p>
+                    <p className="text-xs text-muted-foreground">Schedules</p>
+                    <p className="text-sm font-medium text-foreground">{course.scheduleCount}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                  <BookOpen size={14} className="text-gray-400" />
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                  <BookOpen size={14} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-gray-500">Classes</p>
-                    <p className="text-sm font-medium text-gray-900">{course.totalClasses}</p>
+                    <p className="text-xs text-muted-foreground">Classes</p>
+                    <p className="text-sm font-medium text-foreground">{course.totalClasses}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                  <UserCircle size={14} className="text-gray-400" />
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                  <UserCircle size={14} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-gray-500">Facilitators</p>
-                    <p className="text-sm font-medium text-gray-900">{course.totalFacilitators}</p>
+                    <p className="text-xs text-muted-foreground">Facilitators</p>
+                    <p className="text-sm font-medium text-foreground">{course.totalFacilitators}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
-                  <Users size={14} className="text-gray-400" />
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                  <Users size={14} className="text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-gray-500">Students</p>
-                    <p className="text-sm font-medium text-gray-900">{course.totalStudents}</p>
+                    <p className="text-xs text-muted-foreground">Students</p>
+                    <p className="text-sm font-medium text-foreground">{course.totalStudents}</p>
                   </div>
                 </div>
               </div>

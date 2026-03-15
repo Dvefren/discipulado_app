@@ -83,42 +83,42 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
     <>
       <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-medium text-gray-900">
+        <div className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
+            <h2 className="text-sm font-medium text-foreground">
               {isEditing ? "Edit class" : "Add class"}
             </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
               <X size={16} />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Session name</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Session name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Sesión 22: La oración"
                 required
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Topic</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Topic</label>
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. La oración"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Date</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Date</label>
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -126,12 +126,12 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
                   onChange={(e) => { setDate(e.target.value); setTbd(false); }}
                   disabled={tbd}
                   required={!tbd}
-                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   onClick={() => { setTbd(!tbd); if (!tbd) setDate(""); }}
-                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${tbd ? "bg-amber-50 text-amber-700 border-amber-200" : "text-gray-500 border-gray-200 hover:border-gray-300"}`}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${tbd ? "bg-amber-50 text-amber-700 border-amber-200" : "text-muted-foreground border-border hover:border-border"}`}
                 >
                   TBD
                 </button>
@@ -144,9 +144,9 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
                   type="checkbox"
                   checked={addToAll}
                   onChange={(e) => setAddToAll(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                 />
-                <span className="text-xs text-gray-600">Add to all 4 schedules</span>
+                <span className="text-xs text-muted-foreground">Add to all 4 schedules</span>
               </label>
             )}
 
@@ -155,10 +155,10 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
             )}
 
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">
                 Cancel
               </button>
-              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50">
+              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
                 {loading ? "Saving..." : isEditing ? "Save changes" : "Add class"}
               </button>
             </div>

@@ -178,35 +178,35 @@ export default function AttendancePage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-gray-900 mb-5">Attendance</h1>
-        <div className="bg-gray-50 rounded-lg p-10 text-center"><p className="text-sm text-gray-400">Loading...</p></div>
+        <h1 className="text-lg font-medium text-foreground mb-5">Attendance</h1>
+        <div className="bg-muted rounded-lg p-10 text-center"><p className="text-sm text-muted-foreground">Loading...</p></div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-gray-900 mb-5">Attendance</h1>
+      <h1 className="text-lg font-medium text-foreground mb-5">Attendance</h1>
 
       {/* Selectors */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">Schedule</label>
-          <select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Schedule</label>
+          <select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
             <option value="">Select a schedule</option>
             {schedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">Class</label>
-          <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white disabled:opacity-50">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Class</label>
+          <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card disabled:opacity-50">
             <option value="">Select a class</option>
             {classes.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">Table / Facilitator</label>
-          <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white disabled:opacity-50">
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Table / Facilitator</label>
+          <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card disabled:opacity-50">
             <option value="">All tables</option>
             {facilitators.map((f) => (<option key={f.tableId} value={f.tableId}>{f.tableName} — {f.facilitatorName}</option>))}
           </select>
@@ -215,9 +215,9 @@ export default function AttendancePage() {
 
       {/* Empty State */}
       {!selectedClass && (
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <BookOpen size={24} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm text-gray-400">
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <BookOpen size={24} className="mx-auto mb-3 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
             {!selectedSchedule ? "Select a schedule and class to start marking attendance." : "Select a class to see the student list."}
           </p>
         </div>
@@ -227,12 +227,12 @@ export default function AttendancePage() {
       {selectedClass && students.length > 0 && (
         <>
           {/* Progress Bar & Stats */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+          <div className="bg-card border border-border rounded-xl p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-900">{attendancePercent}% attendance</span>
-              <span className="text-xs text-gray-400">{presentCount}/{totalCount} present</span>
+              <span className="text-sm font-medium text-foreground">{attendancePercent}% attendance</span>
+              <span className="text-xs text-muted-foreground">{presentCount}/{totalCount} present</span>
             </div>
-            <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden mb-3">
+            <div className="h-2.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
               <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${attendancePercent}%` }} />
             </div>
             <div className="flex items-center justify-between">
@@ -241,12 +241,12 @@ export default function AttendancePage() {
                 {absentCount > 0 && <span className="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-md">{absentCount} absent</span>}
                 {previewedCount > 0 && <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded-md">{previewedCount} previewed</span>}
                 {recoveredCount > 0 && <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-md">{recoveredCount} recovered</span>}
-                {unmarkedCount > 0 && <span className="text-xs text-gray-400">{unmarkedCount} unmarked</span>}
+                {unmarkedCount > 0 && <span className="text-xs text-muted-foreground">{unmarkedCount} unmarked</span>}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={markAllPresent} className="px-2.5 py-1 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">All present</button>
-                <button onClick={clearAll} className="px-2.5 py-1 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Clear all</button>
-                <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50">
+                <button onClick={markAllPresent} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">All present</button>
+                <button onClick={clearAll} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">Clear all</button>
+                <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
                   {saving ? "Saving..." : saved ? (<><Check size={13} /> Saved</>) : (<><Save size={13} /> Save</>)}
                 </button>
               </div>
@@ -264,31 +264,31 @@ export default function AttendancePage() {
               const needsDetails = rec.status === "ABSENT" || rec.status === "PREVIEWED" || rec.status === "RECOVERED";
 
               return (
-                <div key={student.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div key={student.id} className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3">
                     {/* Status Button */}
-                    <button onClick={() => cycleStatus(student.id)} className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${hasStatus ? `${config!.bg} ${config!.color}` : "bg-gray-100 text-gray-400"}`} title="Click to set status">
+                    <button onClick={() => cycleStatus(student.id)} className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${hasStatus ? `${config!.bg} ${config!.color}` : "bg-accent text-muted-foreground"}`} title="Click to set status">
                       {hasStatus ? config!.label : "Not marked"}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{student.firstName} {student.lastName}</p>
-                      <p className="text-xs text-gray-400">{student.tableName} — {student.facilitatorName}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{student.firstName} {student.lastName}</p>
+                      <p className="text-xs text-muted-foreground">{student.tableName} — {student.facilitatorName}</p>
                     </div>
 
                     {needsDetails && (
-                      <button onClick={() => setExpandedStudent(isExpanded ? null : student.id)} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all ${isExpanded ? "rotate-180" : ""}`}>
+                      <button onClick={() => setExpandedStudent(isExpanded ? null : student.id)} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all ${isExpanded ? "rotate-180" : ""}`}>
                         <ChevronDown size={14} />
                       </button>
                     )}
                   </div>
 
                   {isExpanded && needsDetails && (
-                    <div className="px-4 pb-3 pt-0 border-t border-gray-100">
+                    <div className="px-4 pb-3 pt-0 border-t border-border/50">
                       <div className="pt-3 space-y-3">
                         <div className="flex gap-1.5 flex-wrap">
                           {(Object.keys(STATUS_CONFIG) as Status[]).map((s) => (
-                            <button key={s} onClick={() => { setStatus(student.id, s); if (s === "PRESENT") setExpandedStudent(null); }} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${rec.status === s ? `${STATUS_CONFIG[s].bg} ${STATUS_CONFIG[s].color}` : "bg-gray-50 text-gray-400 hover:text-gray-600"}`}>
+                            <button key={s} onClick={() => { setStatus(student.id, s); if (s === "PRESENT") setExpandedStudent(null); }} className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${rec.status === s ? `${STATUS_CONFIG[s].bg} ${STATUS_CONFIG[s].color}` : "bg-muted text-muted-foreground hover:text-foreground"}`}>
                               {STATUS_CONFIG[s].label}
                             </button>
                           ))}
@@ -297,28 +297,28 @@ export default function AttendancePage() {
                         {rec.status === "ABSENT" && (
                           <div className="space-y-2">
                             <div>
-                              <label className="block text-xs text-gray-500 mb-1">Reason</label>
+                              <label className="block text-xs text-muted-foreground mb-1">Reason</label>
                               <div className="flex gap-1.5 flex-wrap">
                                 {ABSENT_REASONS.map((r) => (
-                                  <button key={r.value} onClick={() => updateRecord(student.id, { absentReason: r.value })} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${rec.absentReason === r.value ? "bg-red-100 text-red-700 font-medium" : "bg-gray-50 text-gray-500 hover:text-gray-700"}`}>
+                                  <button key={r.value} onClick={() => updateRecord(student.id, { absentReason: r.value })} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${rec.absentReason === r.value ? "bg-red-100 text-red-700 font-medium" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
                                     {r.label}
                                   </button>
                                 ))}
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs text-gray-500 mb-1">Note (optional)</label>
-                              <input type="text" value={rec.absentNote} onChange={(e) => updateRecord(student.id, { absentNote: e.target.value })} placeholder="e.g. Had a doctor appointment" className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+                              <label className="block text-xs text-muted-foreground mb-1">Note (optional)</label>
+                              <input type="text" value={rec.absentNote} onChange={(e) => updateRecord(student.id, { absentNote: e.target.value })} placeholder="e.g. Had a doctor appointment" className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
                             </div>
                           </div>
                         )}
 
                         {(rec.status === "PREVIEWED" || rec.status === "RECOVERED") && (
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1">
+                            <label className="block text-xs text-muted-foreground mb-1">
                               {rec.status === "PREVIEWED" ? "Which schedule did they preview in?" : "Which schedule did they recover in?"}
                             </label>
-                            <select value={rec.altScheduleId} onChange={(e) => updateRecord(student.id, { altScheduleId: e.target.value })} className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white">
+                            <select value={rec.altScheduleId} onChange={(e) => updateRecord(student.id, { altScheduleId: e.target.value })} className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
                               <option value="">Select schedule</option>
                               {otherSchedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
                             </select>
@@ -335,9 +335,9 @@ export default function AttendancePage() {
       )}
 
       {selectedClass && students.length === 0 && (
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <Users size={24} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-sm text-gray-400">No students in this {selectedTable ? "table" : "schedule"} yet.</p>
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <Users size={24} className="mx-auto mb-3 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">No students in this {selectedTable ? "table" : "schedule"} yet.</p>
         </div>
       )}
     </div>

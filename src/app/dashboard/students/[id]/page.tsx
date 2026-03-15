@@ -95,7 +95,7 @@ export default function StudentProfilePage() {
   if (loading) {
     return (
       <div className="text-center py-20">
-        <p className="text-sm text-gray-400">Loading profile...</p>
+        <p className="text-sm text-muted-foreground">Loading profile...</p>
       </div>
     );
   }
@@ -108,19 +108,19 @@ export default function StudentProfilePage() {
   return (
     <div>
       {/* Back button */}
-      <button onClick={() => router.push("/dashboard/students")} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-5">
+      <button onClick={() => router.push("/dashboard/students")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
         <ArrowLeft size={14} /> Back to students
       </button>
 
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-lg font-medium">
+          <div className="w-14 h-14 rounded-full bg-red-600/15 flex items-center justify-center text-red-600 text-lg font-medium">
             {student.firstName[0]}{student.lastName[0]}
           </div>
           <div>
-            <h1 className="text-xl font-medium text-gray-900">{student.firstName} {student.lastName}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{student.tableName} · {student.facilitatorName} · {student.scheduleLabel}</p>
+            <h1 className="text-xl font-medium text-foreground">{student.firstName} {student.lastName}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{student.tableName} · {student.facilitatorName} · {student.scheduleLabel}</p>
           </div>
         </div>
         {percent !== null && (
@@ -134,38 +134,38 @@ export default function StudentProfilePage() {
         {/* Left Column — Info + Church Questions */}
         <div className="lg:col-span-1 space-y-4">
           {/* Contact Info */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Contact info</h3>
+          <div className="bg-card border border-border rounded-xl p-4">
+            <h3 className="text-sm font-medium text-foreground mb-3">Contact info</h3>
             <div className="space-y-2.5">
               {student.birthdateFormatted && (
                 <div className="flex items-center gap-2.5">
-                  <Cake size={14} className="text-gray-400 shrink-0" />
-                  <span className="text-sm text-gray-700">{student.birthdateFormatted}</span>
+                  <Cake size={14} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground">{student.birthdateFormatted}</span>
                 </div>
               )}
               {student.phone && (
                 <div className="flex items-center gap-2.5">
-                  <Phone size={14} className="text-gray-400 shrink-0" />
-                  <span className="text-sm text-gray-700">{student.phone}</span>
+                  <Phone size={14} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground">{student.phone}</span>
                 </div>
               )}
               {student.address && (
                 <div className="flex items-center gap-2.5">
-                  <MapPin size={14} className="text-gray-400 shrink-0" />
-                  <span className="text-sm text-gray-700">{student.address}</span>
+                  <MapPin size={14} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm text-foreground">{student.address}</span>
                 </div>
               )}
               {!student.birthdateFormatted && !student.phone && !student.address && (
-                <p className="text-xs text-gray-400">No contact info added yet.</p>
+                <p className="text-xs text-muted-foreground">No contact info added yet.</p>
               )}
             </div>
           </div>
 
           {/* Church Questions */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-900">Church profile</h3>
-              <button onClick={handleSaveNotes} disabled={saving} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors disabled:opacity-50">
+              <h3 className="text-sm font-medium text-foreground">Church profile</h3>
+              <button onClick={handleSaveNotes} disabled={saving} className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-600/10 transition-colors disabled:opacity-50">
                 {saving ? "Saving..." : saved ? (<><Check size={11} /> Saved</>) : (<><Save size={11} /> Save</>)}
               </button>
             </div>
@@ -173,38 +173,38 @@ export default function StudentProfilePage() {
             <div className="space-y-3">
               {/* Baptized */}
               <label className="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" checked={baptized} onChange={(e) => setBaptized(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
-                <span className="text-sm text-gray-700">Baptized</span>
+                <input type="checkbox" checked={baptized} onChange={(e) => setBaptized(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                <span className="text-sm text-foreground">Baptized</span>
               </label>
 
               {/* Salvation Date */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Salvation date</label>
-                <input type="date" value={salvationDate} onChange={(e) => setSalvationDate(e.target.value)} className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700" />
+                <label className="block text-xs text-muted-foreground mb-1">Salvation date</label>
+                <input type="date" value={salvationDate} onChange={(e) => setSalvationDate(e.target.value)} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
               </div>
 
               {/* Member Since */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Member since</label>
-                <input type="text" value={memberSince} onChange={(e) => setMemberSince(e.target.value)} placeholder="e.g. January 2024" className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+                <label className="block text-xs text-muted-foreground mb-1">Member since</label>
+                <input type="text" value={memberSince} onChange={(e) => setMemberSince(e.target.value)} placeholder="e.g. January 2024" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
               </div>
 
               {/* Previous Church */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Previous church experience</label>
-                <input type="text" value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder="e.g. First Baptist, 3 years" className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+                <label className="block text-xs text-muted-foreground mb-1">Previous church experience</label>
+                <input type="text" value={previousChurch} onChange={(e) => setPreviousChurch(e.target.value)} placeholder="e.g. First Baptist, 3 years" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
               </div>
 
               {/* Small Group */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Small group / ministry</label>
-                <input type="text" value={smallGroup} onChange={(e) => setSmallGroup(e.target.value)} placeholder="e.g. Youth Ministry" className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+                <label className="block text-xs text-muted-foreground mb-1">Small group / ministry</label>
+                <input type="text" value={smallGroup} onChange={(e) => setSmallGroup(e.target.value)} placeholder="e.g. Youth Ministry" className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
               </div>
 
               {/* Custom Notes */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Notes</label>
-                <textarea value={customNotes} onChange={(e) => setCustomNotes(e.target.value)} placeholder="Any additional notes about this student..." rows={3} className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400 resize-none" />
+                <label className="block text-xs text-muted-foreground mb-1">Notes</label>
+                <textarea value={customNotes} onChange={(e) => setCustomNotes(e.target.value)} placeholder="Any additional notes about this student..." rows={3} className="w-full px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground resize-none" />
               </div>
             </div>
           </div>
@@ -233,21 +233,21 @@ export default function StudentProfilePage() {
           </div>
 
           {/* Attendance History */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-medium text-gray-900">Attendance history</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{s.markedClasses} of {s.totalClasses} classes recorded</p>
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/50">
+              <h3 className="text-sm font-medium text-foreground">Attendance history</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{s.markedClasses} of {s.totalClasses} classes recorded</p>
             </div>
 
             {/* Desktop */}
             <div className="hidden md:block">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Class</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 w-24">Date</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 w-28">Status</th>
-                    <th className="text-left px-4 py-2 text-xs font-medium text-gray-500">Details</th>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Class</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-24">Date</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground w-28">Status</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -255,19 +255,19 @@ export default function StudentProfilePage() {
                     const config = record.status ? STATUS_CONFIG[record.status] : null;
                     const Icon = config?.icon;
                     return (
-                      <tr key={record.classId} className="border-b border-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-900">{record.className}</td>
-                        <td className="px-4 py-2 text-sm text-gray-500">{record.date}</td>
+                      <tr key={record.classId} className="border-b border-border/30">
+                        <td className="px-4 py-2 text-sm text-foreground">{record.className}</td>
+                        <td className="px-4 py-2 text-sm text-muted-foreground">{record.date}</td>
                         <td className="px-4 py-2">
                           {config ? (
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${config.bg} ${config.color}`}>
                               {Icon && <Icon size={10} />} {config.label}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-300">Not marked</span>
+                            <span className="text-xs text-muted-foreground">Not marked</span>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-xs text-gray-500">
+                        <td className="px-4 py-2 text-xs text-muted-foreground">
                           {record.absentReason && <span className="capitalize">{record.absentReason.toLowerCase()}</span>}
                           {record.absentNote && <span> — {record.absentNote}</span>}
                           {record.altScheduleLabel && <span>in {record.altScheduleLabel}</span>}
@@ -286,14 +286,14 @@ export default function StudentProfilePage() {
                 return (
                   <div key={record.classId} className="px-4 py-2.5">
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-sm text-gray-900 truncate flex-1">{record.className}</p>
+                      <p className="text-sm text-foreground truncate flex-1">{record.className}</p>
                       {config ? (
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ml-2 ${config.bg} ${config.color}`}>{config.label}</span>
                       ) : (
-                        <span className="text-[10px] text-gray-300 shrink-0 ml-2">Not marked</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0 ml-2">Not marked</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400">{record.date}
+                    <p className="text-xs text-muted-foreground">{record.date}
                       {record.absentReason && ` · ${record.absentReason.toLowerCase()}`}
                       {record.altScheduleLabel && ` · ${record.altScheduleLabel}`}
                     </p>

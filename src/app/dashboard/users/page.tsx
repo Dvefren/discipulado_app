@@ -23,7 +23,7 @@ interface ScheduleOption { id: string; label: string; }
 interface FacilitatorOption { id: string; name: string; scheduleLabel: string; linked: boolean; }
 
 const ROLE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
-  ADMIN: { label: "Admin", icon: Shield, color: "text-purple-700", bg: "bg-purple-50" },
+  ADMIN: { label: "Admin", icon: Shield, color: "text-red-600", bg: "bg-red-50" },
   SCHEDULE_LEADER: { label: "Schedule Leader", icon: BookOpen, color: "text-blue-700", bg: "bg-blue-50" },
   SECRETARY: { label: "Secretary", icon: ClipboardCheck, color: "text-teal-700", bg: "bg-teal-50" },
   FACILITATOR: { label: "Facilitator", icon: UserCircle, color: "text-amber-700", bg: "bg-amber-50" },
@@ -92,9 +92,9 @@ export default function UsersPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-gray-900 mb-5">Users</h1>
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <p className="text-sm text-gray-400">Loading...</p>
+        <h1 className="text-lg font-medium text-foreground mb-5">Users</h1>
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -103,8 +103,8 @@ export default function UsersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-gray-900">Users</h1>
-        <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors">
+        <h1 className="text-lg font-medium text-foreground">Users</h1>
+        <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors">
           <Plus size={14} /> Create user
         </button>
       </div>
@@ -121,20 +121,20 @@ export default function UsersPage() {
           <button
             key={opt.key}
             onClick={() => setFilter(opt.key)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${filter === opt.key ? "bg-gray-100 font-medium text-gray-900 border-gray-200" : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${filter === opt.key ? "bg-accent font-medium text-foreground border-border" : "text-muted-foreground border-border hover:border-border hover:text-foreground"}`}
           >
             {opt.label}
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-gray-400 mb-3">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-xs text-muted-foreground mb-3">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</p>
 
       {/* User Cards */}
       <div className="space-y-2">
         {filtered.length === 0 ? (
-          <div className="bg-gray-50 rounded-lg p-10 text-center">
-            <p className="text-sm text-gray-400">No users found.</p>
+          <div className="bg-muted rounded-lg p-10 text-center">
+            <p className="text-sm text-muted-foreground">No users found.</p>
           </div>
         ) : (
           filtered.map((user) => {
@@ -142,7 +142,7 @@ export default function UsersPage() {
             const Icon = config.icon;
 
             return (
-              <div key={user.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition-colors group">
+              <div key={user.id} className="bg-card border border-border rounded-xl p-4 hover:border-border transition-colors group">
                 <div className="flex items-center gap-3">
                   {/* Avatar */}
                   <div className={`w-10 h-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}>
@@ -152,21 +152,21 @@ export default function UsersPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
                       <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${config.bg} ${config.color}`}>
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
 
                     {/* Role-specific details */}
                     {user.role === "FACILITATOR" && user.facilitatorName && (
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className="text-[11px] text-muted-foreground mt-1">
                         Linked to {user.facilitatorName} · {user.facilitatorSchedule}
                       </p>
                     )}
                     {(user.role === "SCHEDULE_LEADER" || user.role === "SECRETARY") && user.scheduleLabels.length > 0 && (
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className="text-[11px] text-muted-foreground mt-1">
                         {user.scheduleLabels.map((s) => s.replace("Wednesday", "Wed").replace("Sunday", "Sun")).join(", ")}
                       </p>
                     )}
@@ -174,10 +174,10 @@ export default function UsersPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleEdit(user)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Edit">
+                    <button onClick={() => handleEdit(user)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Edit">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => handleDeleteClick(user)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
+                    <button onClick={() => handleDeleteClick(user)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
                       <Trash2 size={13} />
                     </button>
                   </div>

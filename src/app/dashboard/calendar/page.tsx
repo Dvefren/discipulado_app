@@ -96,14 +96,14 @@ export default function CalendarPage() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-gray-900">Calendar</h1>
+        <h1 className="text-lg font-medium text-foreground">Calendar</h1>
         <div className="flex items-center gap-2">
-          <button onClick={goToday} className="px-2.5 py-1 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Today</button>
-          <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+          <button onClick={goToday} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">Today</button>
+          <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-sm font-medium text-gray-900 min-w-[140px] text-center">{MONTH_NAMES[month - 1]} {year}</span>
-          <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+          <span className="text-sm font-medium text-foreground min-w-[140px] text-center">{MONTH_NAMES[month - 1]} {year}</span>
+          <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
@@ -111,16 +111,16 @@ export default function CalendarPage() {
 
       {/* Legend */}
       <div className="flex gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <div className="w-4 h-4 rounded bg-purple-100 flex items-center justify-center"><BookOpen size={10} className="text-purple-600" /></div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="w-4 h-4 rounded bg-rose-100 flex items-center justify-center"><BookOpen size={10} className="text-rose-400" /></div>
           Classes
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <div className="w-4 h-4 rounded bg-pink-100 flex items-center justify-center"><Cake size={10} className="text-pink-600" /></div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="w-4 h-4 rounded bg-sky-100 flex items-center justify-center"><Cake size={10} className="text-sky-400" /></div>
           Birthdays
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <div className="w-4 h-4 rounded bg-amber-100 flex items-center justify-center"><Flag size={10} className="text-amber-600" /></div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="w-4 h-4 rounded bg-orange-100 flex items-center justify-center"><Flag size={10} className="text-orange-400" /></div>
           Course dates
         </div>
       </div>
@@ -128,15 +128,15 @@ export default function CalendarPage() {
       <div className="flex flex-col lg:flex-row gap-5">
         {/* Calendar Grid */}
         <div className="flex-1">
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="grid grid-cols-7 border-b border-gray-100">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-border/50">
               {DAY_NAMES.map((d) => (
-                <div key={d} className="px-2 py-2 text-xs font-medium text-gray-400 text-center">{d}</div>
+                <div key={d} className="px-2 py-2 text-xs font-medium text-muted-foreground text-center">{d}</div>
               ))}
             </div>
 
             {loading ? (
-              <div className="p-10 text-center text-sm text-gray-400">Loading...</div>
+              <div className="p-10 text-center text-sm text-muted-foreground">Loading...</div>
             ) : (
               <div className="grid grid-cols-7">
                 {Array.from({ length: totalCells }).map((_, i) => {
@@ -153,49 +153,49 @@ export default function CalendarPage() {
                     <div
                       key={i}
                       onClick={() => isValid && setSelectedDay(day === selectedDay ? null : day)}
-                      className={`min-h-[80px] md:min-h-[88px] p-1.5 border-b border-r border-gray-50 transition-colors ${isValid ? "cursor-pointer hover:bg-gray-50" : ""} ${isSelected ? "bg-purple-50/70" : ""}`}
+                      className={`min-h-[80px] md:min-h-[88px] p-1.5 border-b border-r border-border/30 transition-colors ${isValid ? "cursor-pointer hover:bg-accent" : ""} ${isSelected ? "bg-rose-50" : ""}`}
                     >
                       {isValid && (
                         <>
-                          <div className={`text-xs mb-1.5 w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? "bg-purple-600 text-white font-medium" : "text-gray-700"}`}>
+                          <div className={`text-xs mb-1.5 w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? "bg-rose-400 text-white font-medium" : "text-foreground"}`}>
                             {day}
                           </div>
 
                           <div className="space-y-1">
                             {/* Class pill */}
                             {hasClass && (
-                              <div className="flex items-center gap-1 bg-purple-50 rounded px-1.5 py-0.5">
-                                <BookOpen size={9} className="text-purple-600 shrink-0" />
-                                <span className="text-[10px] text-purple-700 truncate leading-tight hidden md:block">
+                              <div className="flex items-center gap-1 bg-rose-100 rounded px-1.5 py-0.5">
+                                <BookOpen size={9} className="text-rose-400 shrink-0" />
+                                <span className="text-[10px] text-rose-400 truncate leading-tight hidden md:block">
                                   {(events.find((e) => e.type === "class") as ClassEvent)?.topics[0]}
                                 </span>
-                                <span className="text-[10px] text-purple-700 md:hidden">Class</span>
+                                <span className="text-[10px] text-rose-400 md:hidden">Class</span>
                               </div>
                             )}
 
                             {/* Birthday pill */}
                             {hasBirthday && (
-                              <div className="flex items-center gap-1 bg-pink-50 rounded px-1.5 py-0.5">
-                                <Cake size={9} className="text-pink-600 shrink-0" />
-                                <span className="text-[10px] text-pink-700 truncate leading-tight hidden md:block">
+                              <div className="flex items-center gap-1 bg-sky-100 rounded px-1.5 py-0.5">
+                                <Cake size={9} className="text-sky-400 shrink-0" />
+                                <span className="text-[10px] text-sky-500 truncate leading-tight hidden md:block">
                                   {birthdayCount === 1
                                     ? (events.find((e) => e.type === "facilitator_birthday" || e.type === "student_birthday") as BirthdayEvent)?.name.split(" ")[0]
                                     : `${birthdayCount} birthdays`}
                                 </span>
-                                <span className="text-[10px] text-pink-700 md:hidden">{birthdayCount}</span>
+                                <span className="text-[10px] text-sky-500 md:hidden">{birthdayCount}</span>
                               </div>
                             )}
 
                             {/* Course pill */}
                             {hasCourse && (
-                              <div className="flex items-center gap-1 bg-amber-50 rounded px-1.5 py-0.5">
-                                <Flag size={9} className="text-amber-600 shrink-0" />
-                                <span className="text-[10px] text-amber-700 truncate leading-tight hidden md:block">
+                              <div className="flex items-center gap-1 bg-orange-100 rounded px-1.5 py-0.5">
+                                <Flag size={9} className="text-orange-400 shrink-0" />
+                                <span className="text-[10px] text-orange-500 truncate leading-tight hidden md:block">
                                   {(events.find((e) => e.type === "course_start") as CourseEvent)
                                     ? "Starts"
                                     : "Ends"}
                                 </span>
-                                <span className="text-[10px] text-amber-700 md:hidden">
+                                <span className="text-[10px] text-orange-500 md:hidden">
                                   {(events.find((e) => e.type === "course_start") as CourseEvent) ? "S" : "E"}
                                 </span>
                               </div>
@@ -214,26 +214,26 @@ export default function CalendarPage() {
         {/* Detail Panel */}
         <div className="lg:w-72">
           {selectedDay ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">
+            <div className="bg-card border border-border rounded-xl p-4">
+              <h3 className="text-sm font-medium text-foreground mb-3">
                 {MONTH_NAMES[month - 1]} {selectedDay}, {year}
               </h3>
 
               {selectedEvents.length === 0 ? (
-                <p className="text-xs text-gray-400">No events on this day.</p>
+                <p className="text-xs text-muted-foreground">No events on this day.</p>
               ) : (
                 <div className="space-y-3">
                   {selectedEvents.map((event, idx) => {
                     if (event.type === "class") {
                       const cls = event as ClassEvent;
                       return (
-                        <div key={`class-${idx}`} className="bg-purple-50 rounded-lg p-3">
+                        <div key={`class-${idx}`} className="bg-rose-100 rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <BookOpen size={14} className="text-purple-600" />
-                            <span className="text-xs font-medium text-purple-800">Class</span>
+                            <BookOpen size={14} className="text-rose-400" />
+                            <span className="text-xs font-medium text-rose-600">Class</span>
                           </div>
-                          <p className="text-xs font-medium text-gray-900">{cls.topics.join(", ")}</p>
-                          <p className="text-[11px] text-gray-500 mt-1">
+                          <p className="text-xs font-medium text-foreground">{cls.topics.join(", ")}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
                             {cls.schedules.length === 4
                               ? "All schedules"
                               : cls.schedules.map((s) => s.replace("Wednesday", "Wed").replace("Sunday", "Sun")).join(", ")}
@@ -245,13 +245,13 @@ export default function CalendarPage() {
                     if (event.type === "facilitator_birthday") {
                       const bday = event as BirthdayEvent;
                       return (
-                        <div key={bday.id} className="bg-pink-50 rounded-lg p-3">
+                        <div key={bday.id} className="bg-sky-100 rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <Cake size={14} className="text-pink-600" />
-                            <span className="text-xs font-medium text-pink-800">Facilitator birthday</span>
+                            <Cake size={14} className="text-sky-400" />
+                            <span className="text-xs font-medium text-sky-600">Facilitator birthday</span>
                           </div>
-                          <p className="text-xs font-medium text-gray-900">{bday.name}</p>
-                          {bday.schedule && <p className="text-[11px] text-gray-500 mt-1">{bday.schedule}</p>}
+                          <p className="text-xs font-medium text-foreground">{bday.name}</p>
+                          {bday.schedule && <p className="text-[11px] text-muted-foreground mt-1">{bday.schedule}</p>}
                         </div>
                       );
                     }
@@ -259,13 +259,13 @@ export default function CalendarPage() {
                     if (event.type === "student_birthday") {
                       const bday = event as BirthdayEvent;
                       return (
-                        <div key={bday.id} className="bg-pink-50 rounded-lg p-3">
+                        <div key={bday.id} className="bg-sky-100 rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <Cake size={14} className="text-pink-500" />
-                            <span className="text-xs font-medium text-pink-700">Student birthday</span>
+                            <Cake size={14} className="text-sky-400" />
+                            <span className="text-xs font-medium text-sky-500">Student birthday</span>
                           </div>
-                          <p className="text-xs font-medium text-gray-900">{bday.name}</p>
-                          <p className="text-[11px] text-gray-500 mt-1">
+                          <p className="text-xs font-medium text-foreground">{bday.name}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
                             {bday.schedule}{bday.facilitator ? ` · ${bday.facilitator}` : ""}
                           </p>
                         </div>
@@ -275,14 +275,14 @@ export default function CalendarPage() {
                     if (event.type === "course_start" || event.type === "course_end") {
                       const ce = event as CourseEvent;
                       return (
-                        <div key={ce.id} className="bg-amber-50 rounded-lg p-3">
+                        <div key={ce.id} className="bg-orange-100 rounded-lg p-3">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <Flag size={14} className="text-amber-600" />
-                            <span className="text-xs font-medium text-amber-800">
+                            <Flag size={14} className="text-orange-400" />
+                            <span className="text-xs font-medium text-orange-600">
                               {ce.type === "course_start" ? "Course begins" : "Course ends"}
                             </span>
                           </div>
-                          <p className="text-xs font-medium text-gray-900">{ce.name}</p>
+                          <p className="text-xs font-medium text-foreground">{ce.name}</p>
                         </div>
                       );
                     }
@@ -293,8 +293,8 @@ export default function CalendarPage() {
               )}
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-xl p-4 text-center">
-              <p className="text-xs text-gray-400">Click a day to see details.</p>
+            <div className="bg-muted rounded-xl p-4 text-center">
+              <p className="text-xs text-muted-foreground">Click a day to see details.</p>
             </div>
           )}
         </div>

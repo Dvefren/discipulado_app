@@ -133,33 +133,33 @@ export function UserForm({ open, onClose, onSubmit, schedules, facilitators, ini
     <>
       <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl">
-            <h2 className="text-sm font-medium text-gray-900">{isEditing ? "Edit user" : "Create user"}</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={16} /></button>
+        <div className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 sticky top-0 bg-card rounded-t-xl">
+            <h2 className="text-sm font-medium text-foreground">{isEditing ? "Edit user" : "Create user"}</h2>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Full name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Maria Garcia" required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Full name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Maria Garcia" required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. maria@discipulado.app" required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. maria@discipulado.app" required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 {isEditing ? "New password (leave blank to keep current)" : "Password"}
               </label>
               <div className="relative">
-                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={isEditing ? "Leave blank to keep current" : "Enter a password"} required={!isEditing} className="w-full px-3 py-2 pr-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={isEditing ? "Leave blank to keep current" : "Enter a password"} required={!isEditing} className="w-full px-3 py-2 pr-10 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
@@ -167,14 +167,14 @@ export function UserForm({ open, onClose, onSubmit, schedules, facilitators, ini
 
             {/* Role */}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Role</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role</label>
               <div className="space-y-1.5">
                 {ROLES.map((r) => (
-                  <label key={r.value} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${role === r.value ? "border-purple-300 bg-purple-50/50" : "border-gray-200 hover:border-gray-300"}`}>
-                    <input type="radio" name="role" value={r.value} checked={role === r.value} onChange={() => setRole(r.value)} className="w-3.5 h-3.5 text-purple-600 focus:ring-purple-500" />
+                  <label key={r.value} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${role === r.value ? "border-red-300 bg-red-600/10/50" : "border-border hover:border-border"}`}>
+                    <input type="radio" name="role" value={r.value} checked={role === r.value} onChange={() => setRole(r.value)} className="w-3.5 h-3.5 text-red-600 focus:ring-red-500" />
                     <div>
-                      <p className="text-xs font-medium text-gray-900">{r.label}</p>
-                      <p className="text-[11px] text-gray-500">{r.description}</p>
+                      <p className="text-xs font-medium text-foreground">{r.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{r.description}</p>
                     </div>
                   </label>
                 ))}
@@ -184,8 +184,8 @@ export function UserForm({ open, onClose, onSubmit, schedules, facilitators, ini
             {/* Facilitator Link (for FACILITATOR, SCHEDULE_LEADER, and SECRETARY) */}
             {(role === "FACILITATOR" || role === "SCHEDULE_LEADER" || role === "SECRETARY") && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Link to facilitator profile</label>
-                <select value={facilitatorId} onChange={(e) => setFacilitatorId(e.target.value)} required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Link to facilitator profile</label>
+                <select value={facilitatorId} onChange={(e) => setFacilitatorId(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
                   <option value="">Select a facilitator</option>
                   {availableFacilitators.map((f) => (
                     <option key={f.id} value={f.id}>{f.name} — {f.scheduleLabel}</option>
@@ -200,14 +200,14 @@ export function UserForm({ open, onClose, onSubmit, schedules, facilitators, ini
             {/* Schedule Selection (for SCHEDULE_LEADER and SECRETARY) */}
             {(role === "SCHEDULE_LEADER" || role === "SECRETARY") && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Assigned schedules
                 </label>
                 <div className="space-y-1.5">
                   {schedules.map((s) => (
-                    <label key={s.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${scheduleIds.includes(s.id) ? "border-purple-300 bg-purple-50/50" : "border-gray-200 hover:border-gray-300"}`}>
-                      <input type="checkbox" checked={scheduleIds.includes(s.id)} onChange={() => toggleSchedule(s.id)} className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500" />
-                      <span className="text-xs text-gray-900">{s.label}</span>
+                    <label key={s.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${scheduleIds.includes(s.id) ? "border-red-300 bg-red-600/10/50" : "border-border hover:border-border"}`}>
+                      <input type="checkbox" checked={scheduleIds.includes(s.id)} onChange={() => toggleSchedule(s.id)} className="w-3.5 h-3.5 rounded text-red-600 focus:ring-red-500" />
+                      <span className="text-xs text-foreground">{s.label}</span>
                     </label>
                   ))}
                 </div>
@@ -219,8 +219,8 @@ export function UserForm({ open, onClose, onSubmit, schedules, facilitators, ini
             )}
 
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50">
+              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">Cancel</button>
+              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
                 {loading ? "Saving..." : isEditing ? "Save changes" : "Create user"}
               </button>
             </div>

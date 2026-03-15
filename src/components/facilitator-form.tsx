@@ -45,7 +45,7 @@ export function FacilitatorForm({ open, onClose, onSubmit, schedules, initialDat
             {error && <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</div>}
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-secondary rounded-lg hover:bg-accent transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50">{loading ? "Saving..." : isEditing ? "Save changes" : "Add facilitator"}</button>
+              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors disabled:opacity-50">{loading ? "Saving..." : isEditing ? "Save changes" : "Add facilitator"}</button>
             </div>
           </form>
         </div>

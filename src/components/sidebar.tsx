@@ -83,7 +83,7 @@ export function Sidebar({ user }: SidebarProps) {
 
         {/* User Info */}
         <div className="flex items-center gap-2 px-3 py-2">
-          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-[11px] font-medium shrink-0">
+          <div className="w-7 h-7 rounded-full bg-red-600 bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
             {user.name?.charAt(0).toUpperCase() || "U"}
           </div>
           <div className="flex-1 min-w-0">

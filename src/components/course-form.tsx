@@ -92,26 +92,26 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
     <>
       <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-medium text-gray-900">{isEditing ? "Edit course" : "New course"}</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X size={16} /></button>
+        <div className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
+            <h2 className="text-sm font-medium text-foreground">{isEditing ? "Edit course" : "New course"}</h2>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Course name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Course 1 - 2026" required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Course name</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Course 1 - 2026" required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Year</label>
-                <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min={2020} max={2040} required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Year</label>
+                <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min={2020} max={2040} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Semester</label>
-                <select value={semester} onChange={(e) => setSemester(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Semester</label>
+                <select value={semester} onChange={(e) => setSemester(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
                   <option value={1}>Semester 1</option>
                   <option value={2}>Semester 2</option>
                 </select>
@@ -120,12 +120,12 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Start date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Start date</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">End date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">End date</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
               </div>
             </div>
 
@@ -140,8 +140,8 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
             )}
 
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50">
+              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">Cancel</button>
+              <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
                 {loading ? "Saving..." : isEditing ? "Save changes" : "Create course"}
               </button>
             </div>

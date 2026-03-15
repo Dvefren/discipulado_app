@@ -121,9 +121,9 @@ export default function StudentsPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-gray-900 mb-5">Students</h1>
-        <div className="bg-gray-50 rounded-lg p-10 text-center">
-          <p className="text-sm text-gray-400">Loading...</p>
+        <h1 className="text-lg font-medium text-foreground mb-5">Students</h1>
+        <div className="bg-muted rounded-lg p-10 text-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -132,25 +132,25 @@ export default function StudentsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-gray-900">Students</h1>
-        <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors">
+        <h1 className="text-lg font-medium text-foreground">Students</h1>
+        <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors">
           <Plus size={14} /> Add student
         </button>
       </div>
 
       {/* Search */}
       <div className="relative max-w-xs mb-3">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, facilitator, or phone..." className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-400" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, facilitator, or phone..." className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
       </div>
 
       {/* Schedule Filters */}
       <div className="flex gap-2 mb-3 flex-wrap">
-        <button onClick={() => setScheduleFilter("all")} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === "all" ? "bg-gray-100 font-medium text-gray-900 border-gray-200" : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}>
+        <button onClick={() => setScheduleFilter("all")} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === "all" ? "bg-accent font-medium text-foreground border-border" : "text-muted-foreground border-border hover:border-border hover:text-foreground"}`}>
           All schedules
         </button>
         {schedules.map((s) => (
-          <button key={s.id} onClick={() => setScheduleFilter(s.label)} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === s.label ? "bg-gray-100 font-medium text-gray-900 border-gray-200" : "text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700"}`}>
+          <button key={s.id} onClick={() => setScheduleFilter(s.label)} className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${scheduleFilter === s.label ? "bg-accent font-medium text-foreground border-border" : "text-muted-foreground border-border hover:border-border hover:text-foreground"}`}>
             {s.label.replace("Wednesday", "Wed").replace("Sunday", "Sun")}
           </button>
         ))}
@@ -162,7 +162,7 @@ export default function StudentsPage() {
           <select
             value={facilitatorFilter}
             onChange={(e) => setFacilitatorFilter(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 bg-white"
+            className="px-3 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card"
           >
             <option value="all">All facilitators ({facilitatorNames.length})</option>
             {facilitatorNames.map((name) => (
@@ -173,7 +173,7 @@ export default function StudentsPage() {
       )}
 
       {/* Count */}
-      <p className="text-xs text-gray-400 mb-3">
+      <p className="text-xs text-muted-foreground mb-3">
         {filtered.length} student{filtered.length !== 1 ? "s" : ""}
         {scheduleFilter !== "all" && ` in ${scheduleFilter}`}
         {facilitatorFilter !== "all" && ` · ${facilitatorFilter}`}
@@ -181,34 +181,34 @@ export default function StudentsPage() {
       </p>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="hidden md:block">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Name</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Schedule</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Facilitator</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">Phone</th>
+              <tr className="border-b border-border/50">
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Schedule</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Facilitator</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Phone</th>
                 <th className="w-20"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
                   {students.length === 0 ? "No students enrolled yet. Add your first student to get started." : "No students match your filters."}
                 </td></tr>
               ) : (
                 filtered.map((student) => (
-                  <tr key={student.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors group">
-                    <td className="px-4 py-2.5 text-sm"><Link href={`/dashboard/students/${student.id}`} className="text-gray-900 hover:text-purple-600 transition-colors">{student.firstName} {student.lastName}</Link></td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.scheduleLabel}</td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.facilitatorName}</td>
-                    <td className="px-4 py-2.5 text-sm text-gray-500">{student.phone || "—"}</td>
+                  <tr key={student.id} className="border-b border-border/30 hover:bg-accent transition-colors group">
+                    <td className="px-4 py-2.5 text-sm"><Link href={`/dashboard/students/${student.id}`} className="text-foreground hover:text-gray-500 dark:hover:text-white transition-colors">{student.firstName} {student.lastName}</Link></td>
+                    <td className="px-4 py-2.5 text-sm text-muted-foreground">{student.scheduleLabel}</td>
+                    <td className="px-4 py-2.5 text-sm text-muted-foreground">{student.facilitatorName}</td>
+                    <td className="px-4 py-2.5 text-sm text-muted-foreground">{student.phone || "—"}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                        <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Edit"><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 size={13} /></button>
+                        <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Edit"><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -220,21 +220,21 @@ export default function StudentsPage() {
 
         <div className="md:hidden divide-y divide-gray-100">
           {filtered.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-gray-400">
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
               {students.length === 0 ? "No students enrolled yet." : "No students match your filters."}
             </div>
           ) : (
             filtered.map((student) => (
               <div key={student.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Link href={`/dashboard/students/${student.id}`} className="text-sm font-medium text-gray-900 hover:text-purple-600 transition-colors">{student.firstName} {student.lastName}</Link>
+                  <Link href={`/dashboard/students/${student.id}`} className="text-sm font-medium text-foreground hover:text-gray-500 dark:hover:text-white transition-colors">{student.firstName} {student.lastName}</Link>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><Pencil size={13} /></button>
-                    <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                    <button onClick={() => handleEdit(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil size={13} /></button>
+                    <button onClick={() => handleDeleteClick(student)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">{student.scheduleLabel} · {student.facilitatorName}</p>
-                {student.phone && <p className="text-xs text-gray-400 mt-0.5">{student.phone}</p>}
+                <p className="text-xs text-muted-foreground">{student.scheduleLabel} · {student.facilitatorName}</p>
+                {student.phone && <p className="text-xs text-muted-foreground mt-0.5">{student.phone}</p>}
               </div>
             ))
           )}
