@@ -33,11 +33,17 @@ export async function GET(request: NextRequest) {
   const selectedSchedule = scheduleId ? availableSchedules.find((s) => s.id === scheduleId) : null;
 
   const classes = selectedSchedule
-    ? selectedSchedule.classes.map((c) => ({
-        id: c.id,
-        name: c.topic || c.name,
-        date: c.date.toISOString().split("T")[0],
-      }))
+    ? selectedSchedule.classes
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          date: c.date.toISOString().split("T")[0],
+        }))
+        .sort((a, b) => {
+          const numA = parseInt(a.name.match(/\d+/)?.[0] || "0");
+          const numB = parseInt(b.name.match(/\d+/)?.[0] || "0");
+          return numA - numB;
+        })
     : [];
 
   // Get facilitators/tables for the selected schedule

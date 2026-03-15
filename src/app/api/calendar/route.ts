@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const day = c.date.getUTCDate();
     if (!classEvents.has(day)) classEvents.set(day, { topics: new Set(), schedules: [] });
     const entry = classEvents.get(day)!;
-    entry.topics.add(c.topic || c.name);
+    entry.topics.add(c.name);
     const label = scheduleLabelMap.get(c.scheduleId) || "Unknown";
     if (!entry.schedules.includes(label)) entry.schedules.push(label);
   });

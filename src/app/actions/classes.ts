@@ -100,3 +100,29 @@ export async function deleteClass(classId: string) {
   revalidatePath("/dashboard/attendance");
   return { success: true };
 }
+
+export async function deleteAllClasses(scheduleId?: string) {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  if (scheduleId) {
+    await prisma.class.deleteMany({ where: { scheduleId } });
+  } else {
+    const course = await prisma.course.findFirst({
+      where: { isActive: true },
+      include: { schedules: true },
+    });
+    if (course) {
+      const scheduleIds = course.schedules.map((s) => s.id);
+      await prisma.class.deleteMany({
+        where: { scheduleId: { in: scheduleIds } },
+      });
+    }
+  }
+
+  revalidatePath("/dashboard/classes");
+  revalidatePath("/dashboard/attendance");
+  return { success: true };
+}

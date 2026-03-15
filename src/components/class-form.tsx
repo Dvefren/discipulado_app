@@ -22,6 +22,7 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
   const [date, setDate] = useState("");
+  const [tbd, setTbd] = useState(false);
   const [addToAll, setAddToAll] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,12 +33,19 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
     if (initialData) {
       setName(initialData.name || "");
       setTopic(initialData.topic || "");
-      setDate(initialData.date || "");
+      if (initialData.date === "2099-12-31") {
+        setDate("");
+        setTbd(true);
+      } else {
+        setDate(initialData.date || "");
+        setTbd(false);
+      }
       setAddToAll(true);
     } else {
       setName("");
       setTopic("");
       setDate("");
+      setTbd(false);
       setAddToAll(true);
     }
     setError("");
@@ -45,8 +53,8 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !date) {
-      setError("Name and date are required.");
+    if (!name.trim() || (!date && !tbd)) {
+      setError("Name and date are required (or mark as TBD).");
       return;
     }
 
@@ -58,7 +66,7 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
         classId: initialData?.classId,
         name: name.trim(),
         topic: topic.trim(),
-        date,
+        date: tbd ? "2099-12-31" : date,
         addToAll,
       });
       onClose();
@@ -111,13 +119,23 @@ export function ClassForm({ open, onClose, onSubmit, initialData }: ClassFormPro
 
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => { setDate(e.target.value); setTbd(false); }}
+                  disabled={tbd}
+                  required={!tbd}
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setTbd(!tbd); if (!tbd) setDate(""); }}
+                  className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${tbd ? "bg-amber-50 text-amber-700 border-amber-200" : "text-gray-500 border-gray-200 hover:border-gray-300"}`}
+                >
+                  TBD
+                </button>
+              </div>
             </div>
 
             {!isEditing && (

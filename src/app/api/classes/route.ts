@@ -13,8 +13,10 @@ export async function GET(request: NextRequest) {
         include: {
           classes: {
             orderBy: { date: "asc" },
+          },
+          tables: {
             include: {
-              _count: { select: { attendance: true } },
+              _count: { select: { students: true } },
             },
           },
         },
@@ -31,29 +33,62 @@ export async function GET(request: NextRequest) {
     label: s.label,
   }));
 
-  // If a schedule filter is provided, show only that schedule's classes
-  // Otherwise show the first schedule's classes (they're all the same 21)
   const targetSchedule = scheduleId
     ? course.schedules.find((s) => s.id === scheduleId)
     : course.schedules[0];
 
-  const classes = targetSchedule
-    ? targetSchedule.classes.map((c, index) => ({
+  if (!targetSchedule) {
+    return NextResponse.json({ classes: [], schedules });
+  }
+
+  const totalStudents = targetSchedule.tables.reduce((sum, t) => sum + t._count.students, 0);
+
+  // Get attendance counts for all classes in this schedule
+  const classIds = targetSchedule.classes.map((c) => c.id);
+  const attendanceCounts = await prisma.attendance.groupBy({
+    by: ["classId"],
+    where: { classId: { in: classIds } },
+    _count: { _all: true },
+  });
+  const presentCounts = await prisma.attendance.groupBy({
+    by: ["classId"],
+    where: { classId: { in: classIds }, status: "PRESENT" },
+    _count: { _all: true },
+  });
+
+  const totalMap = new Map(attendanceCounts.map((a) => [a.classId, a._count._all]));
+  const presentMap = new Map(presentCounts.map((a) => [a.classId, a._count._all]));
+
+  const classes = targetSchedule.classes
+    .map((c) => {
+      const totalMarked = totalMap.get(c.id) || 0;
+      const presentCount = presentMap.get(c.id) || 0;
+      const percent = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : null;
+      const classNum = parseInt(c.name.match(/\d+/)?.[0] || "0");
+
+      return {
         id: c.id,
-        number: index + 1,
+        number: classNum,
         name: c.name,
-        topic: c.topic,
+        topic: c.topic || null,
         date: c.date.toISOString().split("T")[0],
-        dateFormatted: c.date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          timeZone: "UTC",
-        }),
-        attendanceCount: c._count.attendance,
+        dateFormatted: c.date.getUTCFullYear() === 2099
+          ? "TBD"
+          : c.date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              timeZone: "UTC",
+            }),
+        isTbd: c.date.getUTCFullYear() === 2099,
+        totalMarked,
+        presentCount,
+        totalStudents,
+        attendancePercent: percent,
         scheduleId: targetSchedule.id,
-      }))
-    : [];
+      };
+    })
+    .sort((a, b) => a.number - b.number);
 
   return NextResponse.json({ classes, schedules });
 }
