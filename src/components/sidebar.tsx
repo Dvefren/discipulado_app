@@ -14,7 +14,7 @@ import {
 type Role = "ADMIN" | "SCHEDULE_LEADER" | "SECRETARY" | "FACILITATOR";
 
 const allNavItems = [
-  { label: "Home", href: "/dashboard", icon: Home, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
+  { label: "Home", href: "/dashboard", icon: Home, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY"] },
   { label: "Students", href: "/dashboard/students", icon: Users, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
   { label: "Attendance", href: "/dashboard/attendance", icon: CheckSquare, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
   { label: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
