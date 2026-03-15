@@ -60,17 +60,17 @@ export default async function DashboardHome() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      {/* Stats — 2 cols on mobile, 4 on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total students" value={totalStudents} />
         <StatCard label="Facilitators" value={totalFacilitators} />
         <StatCard label="Schedules" value={course.schedules.length} />
         <StatCard label="Avg. attendance" value="--" />
       </div>
 
-      {/* Schedules */}
+      {/* Schedules — 1 col on mobile, 2 on desktop */}
       <h2 className="text-[15px] font-medium text-gray-900 mb-3">Schedules</h2>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {course.schedules.map((schedule) => {
           const facilitatorNames = schedule.tables.map(
             (t) => t.facilitator.name
