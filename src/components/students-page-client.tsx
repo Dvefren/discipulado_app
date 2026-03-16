@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import AddStudentModal from "@/components/add-student-modal";
 import { ExportCsvButton } from "@/components/export-csv-button";
+import { deleteStudent } from "@/app/actions/students";
 
 interface Student {
   id: string;
@@ -42,6 +44,10 @@ export default function StudentsPageClient({
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
+  const [isPending, startTransition] = useTransition();
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -65,7 +71,7 @@ export default function StudentsPageClient({
           s.firstName.toLowerCase().includes(q) ||
           s.lastName.toLowerCase().includes(q) ||
           `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-          (s.phone && s.phone.includes(q)) ||
+          (s.phone && s.phone.toLowerCase().includes(q)) ||
           s.facilitatorName.toLowerCase().includes(q)
         );
       })
@@ -108,10 +114,24 @@ export default function StudentsPageClient({
     }
   };
 
+  function handleDelete() {
+    if (!deleteTarget) return;
+    startTransition(async () => {
+      try {
+        await deleteStudent(deleteTarget.id);
+        // Remove from local state immediately
+        setStudents((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      } catch {
+        alert("Failed to delete student. Please try again.");
+      }
+    });
+  }
+
   const SortArrow = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
     return (
-      <span className="ml-1 text-muted-foreground/70">
+      <span className="ml-1 text-foreground/70">
         {sortDir === "asc" ? "↑" : "↓"}
       </span>
     );
@@ -125,7 +145,7 @@ export default function StudentsPageClient({
           <ExportCsvButton scheduleFilter={filter} />
           <button
             onClick={() => setModalOpen(true)}
-            className="px-3.5 py-1.5 text-xs font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+            className="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-foreground text-background hover:opacity-90 transition-colors"
           >
             + Add student
           </button>
@@ -135,7 +155,7 @@ export default function StudentsPageClient({
       {/* Search bar */}
       <div className="relative mb-4">
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/70"
           fill="none"
           viewBox="0 0 24 24"
           strokeWidth={2}
@@ -144,23 +164,23 @@ export default function StudentsPageClient({
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z"
           />
         </svg>
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, phone, or facilitator..."
-          className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-xl outline-none focus:border-ring placeholder:text-muted-foreground/40 transition-colors"
+          placeholder="Search by name, phone, facilitator..."
+          className="w-full pl-9 pr-9 py-2 rounded-lg text-sm bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-border transition-colors"
         />
         {search && (
           <button
             onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-gray-600 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         )}
@@ -170,10 +190,10 @@ export default function StudentsPageClient({
       <div className="flex gap-2 mb-4 flex-wrap">
         <button
           onClick={() => setFilter("all")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs border cursor-pointer transition-colors ${
+          className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${
             filter === "all"
-              ? "bg-secondary font-medium text-foreground border-border"
-              : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
+              ? "bg-card font-medium text-foreground border-border"
+              : "text-muted-foreground border-border hover:border-border hover:text-foreground"
           }`}
         >
           All schedules
@@ -182,10 +202,10 @@ export default function StudentsPageClient({
           <button
             key={s.id}
             onClick={() => setFilter(s.label)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs border cursor-pointer transition-colors ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${
               filter === s.label
-                ? "bg-secondary font-medium text-foreground border-border"
-                : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
+                ? "bg-card font-medium text-foreground border-border"
+                : "text-muted-foreground border-border hover:border-border hover:text-foreground"
             }`}
           >
             {s.label}
@@ -200,43 +220,44 @@ export default function StudentsPageClient({
             <tr className="border-b border-border/50">
               <th
                 onClick={() => handleSort("name")}
-                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer hover:text-gray-700 transition-colors select-none"
+                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer select-none"
               >
                 Name
                 <SortArrow field="name" />
               </th>
               <th
                 onClick={() => handleSort("schedule")}
-                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer hover:text-gray-700 transition-colors select-none"
+                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer select-none"
               >
                 Schedule
                 <SortArrow field="schedule" />
               </th>
               <th
                 onClick={() => handleSort("facilitator")}
-                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer hover:text-gray-700 transition-colors select-none"
+                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer select-none"
               >
                 Facilitator
                 <SortArrow field="facilitator" />
               </th>
               <th
                 onClick={() => handleSort("phone")}
-                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer hover:text-gray-700 transition-colors select-none"
+                className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer select-none"
               >
                 Phone
                 <SortArrow field="phone" />
               </th>
+              <th className="w-10" />
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
-                  className="px-4 py-10 text-center text-sm text-muted-foreground/70"
+                  colSpan={5}
+                  className="px-4 py-10 text-center text-sm text-muted-foreground"
                 >
                   {search
-                    ? `No students matching "${search}"`
+                    ? `No results matching "${search}"`
                     : filter === "all"
                     ? "No students enrolled yet. Add your first student to get started."
                     : "No students in this schedule."}
@@ -249,7 +270,7 @@ export default function StudentsPageClient({
                   onClick={() =>
                     router.push(`/dashboard/students/${student.id}`)
                   }
-                  className="border-b border-border/30 hover:bg-muted transition-colors cursor-pointer"
+                  className="border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer group"
                 >
                   <td className="px-4 py-2.5 text-sm text-foreground">
                     {student.firstName} {student.lastName}
@@ -263,6 +284,18 @@ export default function StudentsPageClient({
                   <td className="px-4 py-2.5 text-sm text-muted-foreground">
                     {student.phone || "—"}
                   </td>
+                  <td className="px-2 py-2.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(student);
+                      }}
+                      className="p-1.5 rounded-md text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                      title="Delete student"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
@@ -272,10 +305,49 @@ export default function StudentsPageClient({
 
       {/* Student count */}
       {sorted.length > 0 && (
-        <p className="text-xs text-muted-foreground/70 mt-2 text-right">
+        <p className="text-xs text-muted-foreground mt-2 text-right">
           {sorted.length} student{sorted.length !== 1 ? "s" : ""}
           {search || filter !== "all" ? " found" : " total"}
         </p>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !isPending && setDeleteTarget(null)}
+          />
+          <div className="relative bg-card rounded-xl shadow-lg p-6 w-full max-w-sm mx-4 border border-border">
+            <h3 className="text-sm font-medium text-foreground mb-2">
+              Delete student
+            </h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteTarget.firstName} {deleteTarget.lastName}
+              </span>
+              ? This will also remove all their attendance records. This action
+              cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isPending}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-foreground border border-border hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isPending}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Student Modal */}

@@ -20,6 +20,5 @@ export async function deleteStudent(studentId: string) {
   });
 
   revalidatePath("/dashboard/students");
-
   return { success: true };
 }
