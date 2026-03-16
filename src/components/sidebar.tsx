@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "@/components/theme-provider";
 import {
   Home, Users, CheckSquare, BookOpen, Monitor, Calendar,
-  UserCircle, Shield, LogOut, Menu, X, Sun, Moon,
+  UserCircle, Shield, LogOut, Menu, X, Sun, Moon, Settings,
 } from "lucide-react";
 
 type Role = "ADMIN" | "SCHEDULE_LEADER" | "SECRETARY" | "FACILITATOR";
@@ -22,6 +22,7 @@ const allNavItems = [
   { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
   { label: "Facilitators", href: "/dashboard/facilitators", icon: UserCircle, roles: ["ADMIN"] },
   { label: "Users", href: "/dashboard/users", icon: Shield, roles: ["ADMIN"] },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 
 interface SidebarProps {

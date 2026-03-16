@@ -1,7 +1,13 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import StudentsPageClient from "@/components/students-page-client";
 
-export default async function StudentsPage() {
+export async function GET() {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const course = await prisma.course.findFirst({
     where: { isActive: true },
     include: {
@@ -20,8 +26,7 @@ export default async function StudentsPage() {
 
   const schedules = course?.schedules || [];
 
-  // Flatten students for the table
-  const allStudents = schedules.flatMap((s) =>
+  const students = schedules.flatMap((s) =>
     s.tables.flatMap((t) =>
       t.students.map((student) => ({
         id: student.id,
@@ -34,21 +39,5 @@ export default async function StudentsPage() {
     )
   );
 
-  // Prepare schedules with tables for the modal
-  const schedulesForModal = schedules.map((s) => ({
-    id: s.id,
-    label: s.label,
-    tables: s.tables.map((t) => ({
-      id: t.id,
-      name: t.name,
-      facilitator: { id: t.facilitator.id, name: t.facilitator.name },
-    })),
-  }));
-
-  return (
-    <StudentsPageClient
-      initialStudents={allStudents}
-      schedules={schedulesForModal}
-    />
-  );
+  return NextResponse.json({ students });
 }

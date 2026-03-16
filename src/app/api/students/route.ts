@@ -1,75 +1,54 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserScope } from "@/lib/scope";
-import { NextResponse } from "next/server";
 
-export async function GET() {
-  const scope = await getUserScope();
-  if (!scope) return NextResponse.json({ students: [], tables: [], schedules: [] });
-
-  const course = await prisma.course.findFirst({
-    where: { isActive: true },
-    include: {
-      schedules: {
-        orderBy: [{ day: "asc" }, { time: "asc" }],
-        include: {
-          tables: {
-            orderBy: { name: "asc" },
-            include: {
-              facilitator: true,
-              students: { orderBy: [{ firstName: "asc" }, { lastName: "asc" }] },
-              _count: { select: { students: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!course) return NextResponse.json({ students: [], tables: [], schedules: [] });
-
-  let filteredSchedules = course.schedules;
-
-  // Filter by scope
-  if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
-    filteredSchedules = filteredSchedules.filter((s) => scope.scheduleIds.includes(s.id));
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let students = filteredSchedules.flatMap((schedule) =>
-    schedule.tables.flatMap((table) => {
-      // Facilitators only see their own table
-      if (scope.role === "FACILITATOR" && scope.tableIds.length > 0) {
-        if (!scope.tableIds.includes(table.id)) return [];
-      }
-      return table.students.map((student) => ({
-        id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        birthdate: student.birthdate ? student.birthdate.toISOString().split("T")[0] : null,
-        phone: student.phone,
-        address: student.address,
-        tableId: table.id,
-        tableName: table.name,
-        facilitatorName: table.facilitator.name,
-        scheduleId: schedule.id,
-        scheduleLabel: schedule.label,
-      }));
-    })
-  );
+  try {
+    const body = await req.json();
+    const { firstName, lastName, phone, address, birthdate, tableId, profileNotes } = body;
 
-  let tables = filteredSchedules.flatMap((schedule) => {
-    let scheduleTables = schedule.tables;
-    if (scope.role === "FACILITATOR" && scope.tableIds.length > 0) {
-      scheduleTables = scheduleTables.filter((t) => scope.tableIds.includes(t.id));
+    if (!firstName || !lastName || !tableId) {
+      return NextResponse.json(
+        { error: "firstName, lastName, and tableId are required" },
+        { status: 400 }
+      );
     }
-    return scheduleTables.map((table) => ({
-      id: table.id,
-      name: table.name,
-      facilitatorName: table.facilitator.name,
-      scheduleLabel: schedule.label,
-    }));
-  });
 
-  const schedules = filteredSchedules.map((s) => ({ id: s.id, label: s.label }));
+    // Verify the table exists
+    const table = await prisma.facilitatorTable.findUnique({
+      where: { id: tableId },
+    });
 
-  return NextResponse.json({ students, tables, schedules });
+    if (!table) {
+      return NextResponse.json(
+        { error: "Table not found" },
+        { status: 404 }
+      );
+    }
+
+    const student = await prisma.student.create({
+      data: {
+        firstName,
+        lastName,
+        phone: phone || null,
+        address: address || null,
+        birthdate: birthdate ? new Date(birthdate) : null,
+        tableId,
+        profileNotes: profileNotes || null,
+      },
+    });
+
+    return NextResponse.json({ success: true, student }, { status: 201 });
+  } catch (error: any) {
+    console.error("Create student error:", error);
+    return NextResponse.json(
+      { error: "Failed to create student" },
+      { status: 500 }
+    );
+  }
 }

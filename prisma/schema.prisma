@@ -188,3 +188,14 @@ model Attendance {
 
   @@unique([studentId, classId])
 }
+
+model ProfileQuestion {
+  id        String   @id @default(cuid())
+  question  String
+  type      String   @default("text")  // "text", "select", "boolean"
+  options   Json?                       // For select type: ["Sí", "No"]
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
