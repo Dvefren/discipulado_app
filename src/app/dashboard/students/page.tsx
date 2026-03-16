@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import StudentsPageClient from "@/components/students-page-client";
+import StudentsTable from "@/components/students-table";
 
 export default async function StudentsPage() {
   const course = await prisma.course.findFirst({
@@ -18,37 +18,31 @@ export default async function StudentsPage() {
     },
   });
 
-  const schedules = course?.schedules || [];
+  const schedules = (course?.schedules || []).map((s) => ({
+    id: s.id,
+    label: s.label,
+  }));
 
-  // Flatten students for the table
-  const allStudents = schedules.flatMap((s) =>
+  const allStudents = (course?.schedules || []).flatMap((s) =>
     s.tables.flatMap((t) =>
       t.students.map((student) => ({
         id: student.id,
         firstName: student.firstName,
         lastName: student.lastName,
         phone: student.phone,
-        scheduleLabel: s.label,
         facilitatorName: t.facilitator.name,
+        scheduleLabel: s.label,
       }))
     )
   );
 
-  // Prepare schedules with tables for the modal
-  const schedulesForModal = schedules.map((s) => ({
-    id: s.id,
-    label: s.label,
-    tables: s.tables.map((t) => ({
-      id: t.id,
-      name: t.name,
-      facilitator: { id: t.facilitator.id, name: t.facilitator.name },
-    })),
-  }));
-
   return (
-    <StudentsPageClient
-      initialStudents={allStudents}
-      schedules={schedulesForModal}
-    />
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-lg font-medium text-gray-900">Students</h1>
+      </div>
+
+      <StudentsTable students={allStudents} schedules={schedules} />
+    </div>
   );
 }
