@@ -81,7 +81,7 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
           ) : null;
         })}
       </div>
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-4">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mb-4">
         <span className="font-medium text-foreground">{pct}% attendance</span>
         {order.map((s) =>
           counts[s] > 0 ? (
@@ -154,16 +154,16 @@ function StudentProfile({
         <ChevronLeft size={14} /> Back to students
       </button>
       {/* Header */}
-      <div className="flex items-start justify-between mb-5">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-base font-semibold text-purple-700 dark:text-purple-300 shrink-0">
             {student.firstName[0]}{student.lastName[0]}
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-foreground">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground truncate">
               {student.firstName} {student.lastName}
             </h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {student.scheduleLabel} · {student.tableName} · {student.facilitatorName}
             </p>
           </div>
@@ -206,9 +206,9 @@ function StudentProfile({
       </div>
       {/* Attendance report */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col gap-2 mb-3">
           <h3 className="text-sm font-medium text-foreground">Attendance report</h3>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Present</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Preview</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" />Recovered</span>
@@ -229,10 +229,10 @@ function StudentProfile({
             {student.attendance.map((a) => {
               const meta = getMeta(a.status);
               return (
-                <div key={a.id} className="flex items-center justify-between text-xs py-1 border-b border-border/50">
-                  <span className="text-foreground">{a.className}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">
+                <div key={a.id} className="flex items-center justify-between gap-2 text-xs py-1 border-b border-border/50">
+                  <span className="text-foreground truncate min-w-0">{a.className}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted-foreground hidden sm:inline">
                       {new Date(a.classDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full font-medium ${meta.light}`}>
