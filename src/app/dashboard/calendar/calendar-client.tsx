@@ -17,21 +17,30 @@ interface CalendarEvent {
 interface Props {
   initialEvents: CalendarEvent[];
   role: string;
+  canEdit: boolean;
+  userScheduleId: string | null;
 }
 
 const categoryMeta: Record<EventCategory, { label: string; color: string; dot: string }> = {
-  BIRTHDAY:    { label: "Birthday",         color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",     dot: "bg-pink-400"   },
-  CLASS:       { label: "Class",            color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",     dot: "bg-blue-400"   },
-  COURSE_DATE: { label: "Course Date",      color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", dot: "bg-purple-500" },
-  SNACK:       { label: "Snack",            color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300", dot: "bg-orange-400" },
-  DYNAMICS:    { label: "Dynamics",         color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",     dot: "bg-teal-400"   },
-  OTHER:       { label: "Other",            color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",        dot: "bg-gray-400"   },
+  BIRTHDAY:    { label: "Birthday",    color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",         dot: "bg-pink-400"   },
+  CLASS:       { label: "Class",       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",         dot: "bg-blue-400"   },
+  COURSE_DATE: { label: "Course Date", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", dot: "bg-purple-500" },
+  SNACK:       { label: "Snack",       color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300", dot: "bg-orange-400" },
+  DYNAMICS:    { label: "Dynamics",    color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",         dot: "bg-teal-400"   },
+  OTHER:       { label: "Other",       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",            dot: "bg-gray-400"   },
 };
+
+// Categories that Leaders/Secretaries can create (not BIRTHDAY or CLASS — those are auto)
+const CREATABLE_CATEGORIES: EventCategory[] = ["COURSE_DATE", "SNACK", "DYNAMICS", "OTHER"];
 
 const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-export function CalendarClient({ initialEvents, role }: Props) {
+function isVirtualEvent(id: string) {
+  return id.startsWith("bday-") || id.startsWith("class-");
+}
+
+export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }: Props) {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -43,7 +52,6 @@ export function CalendarClient({ initialEvents, role }: Props) {
   const [newCategory, setNewCategory] = useState<EventCategory>("OTHER");
   const [saving, setSaving] = useState(false);
 
-  const canEdit = role === "ADMIN" || role === "SECRETARY";
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
@@ -55,7 +63,6 @@ export function CalendarClient({ initialEvents, role }: Props) {
   function getEventsForDay(day: number) {
     return events.filter((e) => {
       const d = new Date(e.date);
-      // Use UTC methods to avoid timezone offset shifting the day
       return d.getUTCFullYear() === year && d.getUTCMonth() === month && d.getUTCDate() === day;
     });
   }
@@ -71,13 +78,19 @@ export function CalendarClient({ initialEvents, role }: Props) {
   }
 
   async function handleSave() {
-    if (!newTitle.trim() || !newDate) return;
+    if (!newTitle.trim() || !newDate || !userScheduleId) return;
     setSaving(true);
     try {
       const res = await fetch("/api/calendar-events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle, date: newDate, description: newDescription || null, category: newCategory }),
+        body: JSON.stringify({
+          title: newTitle,
+          date: newDate,
+          description: newDescription || null,
+          category: newCategory,
+          scheduleId: userScheduleId,
+        }),
       });
       if (res.ok) {
         const created = await res.json();
@@ -91,6 +104,7 @@ export function CalendarClient({ initialEvents, role }: Props) {
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
+    if (isVirtualEvent(id)) return; // safety check
     const res = await fetch("/api/calendar-events", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -156,13 +170,13 @@ export function CalendarClient({ initialEvents, role }: Props) {
                 </span>
                 <div className="space-y-0.5">
                   {dayEvents.slice(0, 2).map((ev) => {
-                    const meta = categoryMeta[ev.category] ?? categoryMeta.OTHER;
+                    const meta = categoryMeta[ev.category as EventCategory] ?? categoryMeta.OTHER;
                     return (
                       <div key={ev.id}
                         onClick={(e) => e.stopPropagation()}
                         className={`group flex items-center justify-between gap-1 rounded px-1.5 py-0.5 ${meta.color}`}>
                         <span className="text-[10px] font-medium truncate">{ev.title}</span>
-                        {canEdit && !ev.id.startsWith("bday-") && (
+                        {canEdit && !isVirtualEvent(ev.id) && (
                           <button onClick={(e) => handleDelete(ev.id, e)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hover:text-red-500">
                             <Trash2 size={10} />
@@ -204,7 +218,7 @@ export function CalendarClient({ initialEvents, role }: Props) {
           ) : (
             <div className="space-y-2">
               {selectedDayEvents.map((ev) => {
-                const meta = categoryMeta[ev.category] ?? categoryMeta.OTHER;
+                const meta = categoryMeta[ev.category as EventCategory] ?? categoryMeta.OTHER;
                 return (
                   <div key={ev.id} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border">
                     <div className="flex items-start gap-2.5">
@@ -220,7 +234,7 @@ export function CalendarClient({ initialEvents, role }: Props) {
                         </div>
                       </div>
                     </div>
-                    {canEdit && !ev.id.startsWith("bday-") && (
+                    {canEdit && !isVirtualEvent(ev.id) && (
                       <button onClick={(e) => handleDelete(ev.id, e)}
                         className="text-muted-foreground hover:text-red-500 transition-colors shrink-0">
                         <Trash2 size={14} />
@@ -258,8 +272,8 @@ export function CalendarClient({ initialEvents, role }: Props) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Category</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(Object.keys(categoryMeta) as EventCategory[]).map((cat) => {
+                <div className="grid grid-cols-2 gap-1.5">
+                  {CREATABLE_CATEGORIES.map((cat) => {
                     const meta = categoryMeta[cat];
                     return (
                       <button key={cat} onClick={() => setNewCategory(cat)}

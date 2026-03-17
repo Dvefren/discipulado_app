@@ -1,36 +1,28 @@
 // Discipleship Dashboard — Prisma Schema
-// This is your starting schema. We'll expand it in the next phase.
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
-
 datasource db {
   provider = "postgresql"
 }
-
 // ─── ENUMS ──────────────────────────────────────────────
-
 enum Role {
   ADMIN
   SCHEDULE_LEADER
   SECRETARY
   FACILITATOR
 }
-
 enum ScheduleDay {
   WEDNESDAY
   SUNDAY
 }
-
 enum AttendanceStatus {
   PRESENT
   ABSENT
   PREVIEWED
   RECOVERED
 }
-
 enum AbsentReason {
   SICK
   WORK
@@ -38,7 +30,6 @@ enum AbsentReason {
   TRAVEL
   OTHER
 }
-
 enum EventCategory {
   BIRTHDAY
   CLASS
@@ -47,9 +38,7 @@ enum EventCategory {
   DYNAMICS
   OTHER
 }
-
 // ─── AUTH & USERS ───────────────────────────────────────
-
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -58,16 +47,13 @@ model User {
   role          Role
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-
   // Role-specific relations
   facilitator   Facilitator?
   scheduleLeaders ScheduleLeader[]
   secretaries     Secretary[]
   calendarEvents  CalendarEvent[]
 }
-
 // ─── CORE MODELS ────────────────────────────────────────
-
 model Course {
   id          String     @id @default(cuid())
   name        String     // e.g. "Course 1 - 2025"
@@ -78,10 +64,8 @@ model Course {
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-
   schedules   Schedule[]
 }
-
 model Schedule {
   id          String       @id @default(cuid())
   day         ScheduleDay
@@ -90,17 +74,15 @@ model Schedule {
   courseId     String
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-
   course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   classes     Class[]
   tables      FacilitatorTable[]
   leaders     ScheduleLeader[]
   secretaries Secretary[]
   attendances Attendance[]
-
+  calendarEvents CalendarEvent[]
   @@unique([courseId, day, time])
 }
-
 model Class {
   id          String     @id @default(cuid())
   name        String     // e.g. "Session 1: Introduction"
@@ -109,13 +91,10 @@ model Class {
   scheduleId  String
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-
   schedule    Schedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   attendance  Attendance[]
 }
-
 // ─── PEOPLE ─────────────────────────────────────────────
-
 model Facilitator {
   id          String     @id @default(cuid())
   name        String
@@ -123,31 +102,25 @@ model Facilitator {
   userId      String?    @unique
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-
   user        User?      @relation(fields: [userId], references: [id])
   tables      FacilitatorTable[]
 }
-
 model ScheduleLeader {
   id          String     @id @default(cuid())
   userId      String
   scheduleId  String
   createdAt   DateTime   @default(now())
-
   user        User       @relation(fields: [userId], references: [id])
   schedule    Schedule   @relation(fields: [scheduleId], references: [id])
 }
-
 model Secretary {
   id          String     @id @default(cuid())
   userId      String
   scheduleId  String
   createdAt   DateTime   @default(now())
-
   user        User       @relation(fields: [userId], references: [id])
   schedule    Schedule   @relation(fields: [scheduleId], references: [id])
 }
-
 model FacilitatorTable {
   id             String     @id @default(cuid())
   name           String     // e.g. "Table 1"
@@ -155,12 +128,10 @@ model FacilitatorTable {
   scheduleId     String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
-
   facilitator    Facilitator @relation(fields: [facilitatorId], references: [id])
   schedule       Schedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   students       Student[]
 }
-
 model Student {
   id            String     @id @default(cuid())
   firstName     String
@@ -172,13 +143,10 @@ model Student {
   tableId       String
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-
   table         FacilitatorTable @relation(fields: [tableId], references: [id])
   attendance    Attendance[]
 }
-
 // ─── ATTENDANCE ─────────────────────────────────────────
-
 model Attendance {
   id                String           @id @default(cuid())
   status            AttendanceStatus @default(PRESENT)
@@ -188,19 +156,14 @@ model Attendance {
   studentId         String
   classId           String
   markedById        String?
-
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
-
   student           Student          @relation(fields: [studentId], references: [id])
   class             Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
   altSchedule       Schedule?        @relation(fields: [altScheduleId], references: [id])
-
   @@unique([studentId, classId])
 }
-
 // ── Cam Scanner ───────────────────────────────────────
-
 model ProfileQuestion {
   id        String   @id @default(cuid())
   question  String
@@ -211,19 +174,17 @@ model ProfileQuestion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
 // ─── CALENDAR ───────────────────────────────────────────
-
 model CalendarEvent {
   id          String    @id @default(cuid())
   title       String
   date        DateTime
   description String?
   createdById String
+  scheduleId  String?   // null = global event (visible to admin)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
   createdBy   User      @relation(fields: [createdById], references: [id])
+  schedule    Schedule? @relation(fields: [scheduleId], references: [id])
   category    EventCategory @default(OTHER)
 }
-
