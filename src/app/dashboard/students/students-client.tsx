@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import {
-  X, Plus, Phone, MapPin, Calendar, ChevronLeft,
+  X, Plus, Phone, MapPin, Calendar, ChevronLeft, Pencil,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp,
 } from "lucide-react";
 type AttendanceStatus = "PRESENT" | "ABSENT" | "PREVIEWED" | "RECOVERED";
@@ -107,15 +107,160 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
     </div>
   );
 }
+// ─── Edit Student Modal ──────────────────────────────────
+function EditStudentModal({
+  student,
+  scheduleOptions,
+  onClose,
+  onUpdated,
+}: {
+  student: Student;
+  scheduleOptions: ScheduleOption[];
+  onClose: () => void;
+  onUpdated: (updated: Student) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState(student.scheduleId);
+  const [selectedTableId, setSelectedTableId] = useState(student.tableId);
+  const [form, setForm] = useState({
+    firstName: student.firstName,
+    lastName: student.lastName,
+    phone: student.phone ?? "",
+    address: student.address ?? "",
+    birthdate: student.birthdate ? student.birthdate.split("T")[0] : "",
+  });
+
+  const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
+
+  function setField(key: keyof typeof form, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.firstName || !form.lastName || !selectedTableId) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/students", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: student.id,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phone || null,
+          address: form.address || null,
+          birthdate: form.birthdate || null,
+          tableId: selectedTableId,
+        }),
+      });
+      if (res.ok) {
+        const selectedSchedule = scheduleOptions.find((s) => s.id === selectedScheduleId);
+        const selectedTable = availableTables.find((t) => t.id === selectedTableId);
+        onUpdated({
+          ...student,
+          ...form,
+          phone: form.phone || null,
+          address: form.address || null,
+          birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
+          scheduleId: selectedScheduleId,
+          tableId: selectedTableId,
+          scheduleLabel: selectedSchedule?.label ?? student.scheduleLabel,
+          tableName: selectedTable?.name ?? student.tableName,
+          facilitatorName: selectedTable?.name ?? student.facilitatorName,
+        });
+        onClose();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 pb-0">
+          <h2 className="text-sm font-semibold text-foreground">Edit Student</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">First name *</label>
+              <input type="text" value={form.firstName} onChange={(e) => setField("firstName", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Last name *</label>
+              <input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
+              <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Birthdate</label>
+              <input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
+            <input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Schedule *</label>
+              <select value={selectedScheduleId} onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
+                <option value="">Select schedule</option>
+                {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitator *</label>
+              <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                <option value="">Select facilitator</option>
+                {availableTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose}
+              className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={!form.firstName || !form.lastName || !selectedTableId || saving}
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 // ─── Student profile ─────────────────────────────────────
 function StudentProfile({
   student,
   profileQuestions,
+  scheduleOptions,
+  role,
   onBack,
   onUpdated,
 }: {
   student: Student;
   profileQuestions: ProfileQuestion[];
+  scheduleOptions: ScheduleOption[];
+  role: string;
   onBack: () => void;
   onUpdated: (updated: Student) => void;
 }) {
@@ -130,6 +275,10 @@ function StudentProfile({
   const [notes, setNotes] = useState<Record<string, string>>(student.profileNotes ?? {});
   const [savingNotes, setSavingNotes] = useState(false);
   const [savedNotes, setSavedNotes] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const canEdit = role === "ADMIN" || role === "SECRETARY";
+
   async function saveNotes() {
     setSavingNotes(true);
     await fetch("/api/students", {
@@ -168,9 +317,17 @@ function StudentProfile({
             </p>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <p className="text-2xl font-bold text-foreground">{pct}%</p>
-          <p className="text-xs text-muted-foreground">attendance</p>
+        <div className="flex items-start gap-3 shrink-0">
+          {canEdit && (
+            <button onClick={() => setEditOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors">
+              <Pencil size={12} /> Edit
+            </button>
+          )}
+          <div className="text-right">
+            <p className="text-2xl font-bold text-foreground">{pct}%</p>
+            <p className="text-xs text-muted-foreground">attendance</p>
+          </div>
         </div>
       </div>
       {/* Stats cards */}
@@ -341,6 +498,18 @@ function StudentProfile({
           </div>
         </div>
       )}
+      {/* Edit modal */}
+      {editOpen && (
+        <EditStudentModal
+          student={student}
+          scheduleOptions={scheduleOptions}
+          onClose={() => setEditOpen(false)}
+          onUpdated={(updated) => {
+            onUpdated(updated);
+            setEditOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -387,7 +556,6 @@ function AddStudentModal({
           address:   data.address   ?? f.address,
           birthdate: data.birthdate ?? f.birthdate,
         }));
-        // Map church answers (keyed by question text) → notes (keyed by question ID)
         if (data.churchAnswers) {
           const mapped: Record<string, string> = {};
           for (const q of profileQuestions) {
@@ -430,11 +598,9 @@ function AddStudentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 pb-0">
           <h2 className="text-sm font-semibold text-foreground">Add Student</h2>
           <div className="flex items-center gap-2">
-            {/* OCR scan button */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={scanning}
@@ -458,7 +624,6 @@ function AddStudentModal({
           </div>
         </div>
         <div className="p-6 space-y-4">
-          {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">First name *</label>
@@ -506,7 +671,6 @@ function AddStudentModal({
               </select>
             </div>
           </div>
-          {/* Church questions */}
           {profileQuestions.length > 0 && (
             <div className="border-t border-border pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Church Questions</p>
@@ -565,7 +729,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
       `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
     return matchSchedule && matchSearch;
   });
-  // CSV export
   function exportCSV() {
     const headers = ["Name", "Schedule", "Facilitator", "Table", "Phone", "Birthdate", "Address", "Attendance %"];
     const rows = filtered.map((s) => {
@@ -614,6 +777,8 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
         <StudentProfile
           student={selectedStudent}
           profileQuestions={profileQuestions}
+          scheduleOptions={scheduleOptions}
+          role={role}
           onBack={() => setSelectedStudent(null)}
           onUpdated={(updated) => {
             setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
@@ -625,7 +790,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
   }
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-medium text-foreground">Students</h1>
         <div className="flex items-center gap-2">
@@ -641,7 +805,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
           )}
         </div>
       </div>
-      {/* Search + filters */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <input type="text" placeholder="Search students..." value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -655,7 +818,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
           ))}
         </div>
       </div>
-      {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full">
           <thead>

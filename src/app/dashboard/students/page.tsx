@@ -2,9 +2,48 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { StudentsClient } from "./students-client";
 
+// ─── Determine user's schedule based on role ─────────────
+async function getUserScheduleId(
+  userId: string,
+  role: string
+): Promise<string | null> {
+  if (role === "ADMIN") return null; // admin sees all
+
+  if (role === "SCHEDULE_LEADER") {
+    const leader = await prisma.scheduleLeader.findFirst({
+      where: { userId },
+    });
+    return leader?.scheduleId ?? null;
+  }
+
+  if (role === "SECRETARY") {
+    const secretary = await prisma.secretary.findFirst({
+      where: { userId },
+    });
+    return secretary?.scheduleId ?? null;
+  }
+
+  if (role === "FACILITATOR") {
+    const facilitator = await prisma.facilitator.findFirst({
+      where: { userId },
+    });
+    if (!facilitator) return null;
+    const table = await prisma.facilitatorTable.findFirst({
+      where: { facilitatorId: facilitator.id },
+    });
+    return table?.scheduleId ?? null;
+  }
+
+  return null;
+}
+
 export default async function StudentsPage() {
   const session = await auth();
-  const role = (session?.user as any)?.role ?? "FACILITATOR";
+  const user = session?.user as any;
+  const role: string = user?.role ?? "FACILITATOR";
+  const userId: string = user?.id ?? "";
+
+  const userScheduleId = await getUserScheduleId(userId, role);
 
   const [courseData, profileQuestions] = await Promise.all([
     prisma.course.findFirst({
@@ -33,9 +72,15 @@ export default async function StudentsPage() {
     }),
   ]);
 
-  const schedules = courseData?.schedules ?? [];
+  const allSchedules = courseData?.schedules ?? [];
 
-  const allStudents = schedules.flatMap((s) =>
+  // Filter schedules based on role
+  const visibleSchedules =
+    role === "ADMIN" || !userScheduleId
+      ? allSchedules
+      : allSchedules.filter((s) => s.id === userScheduleId);
+
+  const allStudents = visibleSchedules.flatMap((s) =>
     s.tables.flatMap((t) =>
       t.students.map((student) => ({
         id: student.id,
@@ -62,10 +107,11 @@ export default async function StudentsPage() {
     )
   );
 
-  const scheduleOptions = schedules.map((s) => ({
+  // Schedule options for the add/edit modal — only show visible schedules
+  const scheduleOptions = visibleSchedules.map((s) => ({
     id: s.id,
     label: s.label,
-    tables: s.tables.map((t) => ({ id: t.id, name: t.facilitator.name }))
+    tables: s.tables.map((t) => ({ id: t.id, name: t.facilitator.name })),
   }));
 
   return (
