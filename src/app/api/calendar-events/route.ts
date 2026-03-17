@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+const ALLOWED_ROLES = ["ADMIN", "SCHEDULE_LEADER", "SECRETARY"];
+
 export async function GET() {
   const events = await prisma.calendarEvent.findMany({
     orderBy: { date: "asc" },
@@ -15,7 +17,7 @@ export async function POST(req: NextRequest) {
   const user = session?.user as any;
   const role = user?.role;
 
-  if (!user || (role !== "SCHEDULE_LEADER" && role !== "SECRETARY")) {
+  if (!user || !ALLOWED_ROLES.includes(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -25,6 +27,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Title and date required" }, { status: 400 });
   }
 
+  // Admin creates global events (no scheduleId)
+  if (role === "ADMIN") {
+    const event = await prisma.calendarEvent.create({
+      data: {
+        title,
+        date: new Date(date + "T12:00:00Z"),
+        description: description ?? null,
+        category: category ?? "OTHER",
+        createdById: user.id,
+        scheduleId: null,
+      },
+    });
+    return NextResponse.json(event, { status: 201 });
+  }
+
+  // Leader/Secretary must provide scheduleId
   if (!scheduleId) {
     return NextResponse.json({ error: "Schedule ID required" }, { status: 400 });
   }
@@ -70,16 +88,32 @@ export async function DELETE(req: NextRequest) {
   const user = session?.user as any;
   const role = user?.role;
 
-  if (!user || (role !== "SCHEDULE_LEADER" && role !== "SECRETARY")) {
+  if (!user || !ALLOWED_ROLES.includes(role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const { id } = await req.json();
 
-  // Verify the event belongs to the user's schedule
   const event = await prisma.calendarEvent.findUnique({ where: { id } });
-  if (!event || !event.scheduleId) {
+  if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
+
+  // Admin can only delete events they created
+  if (role === "ADMIN") {
+    if (event.createdById !== user.id) {
+      return NextResponse.json(
+        { error: "You can only delete events you created" },
+        { status: 403 }
+      );
+    }
+    await prisma.calendarEvent.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Leader/Secretary can delete events from their schedule
+  if (!event.scheduleId) {
+    return NextResponse.json({ error: "Cannot delete global events" }, { status: 403 });
   }
 
   let authorized = false;

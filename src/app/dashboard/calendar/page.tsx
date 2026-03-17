@@ -50,17 +50,21 @@ export default async function CalendarPage() {
   let customEvents: any[] = [];
 
   if (role === "ADMIN") {
-    // Admin sees NO custom schedule events (only birthdays, classes, course dates)
-    // But still fetch global events (scheduleId is null) if any exist
+    // Admin sees global events (scheduleId is null)
     customEvents = await prisma.calendarEvent.findMany({
       where: { scheduleId: null },
       orderBy: { date: "asc" },
       include: { createdBy: { select: { name: true } } },
     });
   } else if (userScheduleId) {
-    // Leader/Secretary/Facilitator: see their schedule's events
+    // Leader/Secretary/Facilitator: see their schedule's events + global admin events
     customEvents = await prisma.calendarEvent.findMany({
-      where: { scheduleId: userScheduleId },
+      where: {
+        OR: [
+          { scheduleId: userScheduleId },
+          { scheduleId: null },
+        ],
+      },
       orderBy: { date: "asc" },
       include: { createdBy: { select: { name: true } } },
     });
@@ -73,19 +77,18 @@ export default async function CalendarPage() {
     description: e.description ?? null,
     category: e.category as string,
     createdByName: e.createdBy.name,
+    createdById: e.createdById,
   }));
 
   // ─── 2. Student birthdays ──────────────────────────────
   let studentBirthdays: any[] = [];
 
   if (role === "ADMIN") {
-    // Admin sees ALL student birthdays
     studentBirthdays = await prisma.student.findMany({
       where: { birthdate: { not: null } },
       select: { id: true, firstName: true, lastName: true, birthdate: true },
     });
   } else if (userScheduleId) {
-    // Others see only their schedule's students
     studentBirthdays = await prisma.student.findMany({
       where: {
         birthdate: { not: null },
@@ -107,6 +110,7 @@ export default async function CalendarPage() {
       description: null,
       category: "BIRTHDAY",
       createdByName: "Auto",
+      createdById: "",
     };
   });
 
@@ -114,13 +118,11 @@ export default async function CalendarPage() {
   let facilitatorBirthdays: any[] = [];
 
   if (role === "ADMIN") {
-    // Admin sees ALL facilitator birthdays
     facilitatorBirthdays = await prisma.facilitator.findMany({
       where: { birthday: { not: null } },
       select: { id: true, name: true, birthday: true },
     });
   } else if (userScheduleId) {
-    // Others see only their schedule's facilitators
     facilitatorBirthdays = await prisma.facilitator.findMany({
       where: {
         birthday: { not: null },
@@ -142,6 +144,7 @@ export default async function CalendarPage() {
       description: null,
       category: "BIRTHDAY",
       createdByName: "Auto",
+      createdById: "",
     };
   });
 
@@ -149,13 +152,11 @@ export default async function CalendarPage() {
   let classes: any[] = [];
 
   if (role === "ADMIN") {
-    // Admin sees all classes
     classes = await prisma.class.findMany({
       include: { schedule: { select: { label: true } } },
       orderBy: { date: "asc" },
     });
   } else if (userScheduleId) {
-    // Others see only their schedule's classes
     classes = await prisma.class.findMany({
       where: { scheduleId: userScheduleId },
       include: { schedule: { select: { label: true } } },
@@ -177,6 +178,7 @@ export default async function CalendarPage() {
     description: c.topic ?? null,
     category: "CLASS",
     createdByName: role === "ADMIN" ? c.schedule.label : "Schedule",
+    createdById: "",
   }));
 
   // ─── 5. Combine everything ─────────────────────────────
@@ -187,10 +189,10 @@ export default async function CalendarPage() {
     ...classEvents,
   ];
 
-  // Can edit: only leaders and secretaries for their own schedule
+  // Can edit: admin, leaders, and secretaries
   const canEdit =
-    (role === "SCHEDULE_LEADER" || role === "SECRETARY") &&
-    !!userScheduleId;
+    role === "ADMIN" ||
+    ((role === "SCHEDULE_LEADER" || role === "SECRETARY") && !!userScheduleId);
 
   return (
     <CalendarClient
@@ -198,6 +200,7 @@ export default async function CalendarPage() {
       role={role}
       canEdit={canEdit}
       userScheduleId={userScheduleId}
+      currentUserId={userId}
     />
   );
 }

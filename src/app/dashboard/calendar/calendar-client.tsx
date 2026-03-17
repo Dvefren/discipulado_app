@@ -12,6 +12,7 @@ interface CalendarEvent {
   description?: string | null;
   category: EventCategory;
   createdByName: string;
+  createdById: string;
 }
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
   role: string;
   canEdit: boolean;
   userScheduleId: string | null;
+  currentUserId: string;
 }
 
 const categoryMeta: Record<EventCategory, { label: string; color: string; dot: string }> = {
@@ -30,7 +32,7 @@ const categoryMeta: Record<EventCategory, { label: string; color: string; dot: s
   OTHER:       { label: "Other",       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",            dot: "bg-gray-400"   },
 };
 
-// Categories that Leaders/Secretaries can create (not BIRTHDAY or CLASS — those are auto)
+// Categories that can be manually created (not BIRTHDAY or CLASS — those are auto)
 const CREATABLE_CATEGORIES: EventCategory[] = ["COURSE_DATE", "SNACK", "DYNAMICS", "OTHER"];
 
 const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -40,7 +42,7 @@ function isVirtualEvent(id: string) {
   return id.startsWith("bday-") || id.startsWith("class-");
 }
 
-export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }: Props) {
+export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, currentUserId }: Props) {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -52,6 +54,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
   const [newCategory, setNewCategory] = useState<EventCategory>("OTHER");
   const [saving, setSaving] = useState(false);
 
+  const isAdmin = role === "ADMIN";
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
@@ -67,6 +70,13 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
     });
   }
 
+  // Can this event be deleted by the current user?
+  function canDeleteEvent(ev: CalendarEvent): boolean {
+    if (isVirtualEvent(ev.id)) return false;
+    if (isAdmin) return ev.createdById === currentUserId;
+    return canEdit; // leaders/secretaries can delete their schedule's events
+  }
+
   function openModal(day?: number) {
     const d = day ? new Date(year, month, day) : new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -78,7 +88,9 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
   }
 
   async function handleSave() {
-    if (!newTitle.trim() || !newDate || !userScheduleId) return;
+    if (!newTitle.trim() || !newDate) return;
+    // Non-admin needs a scheduleId
+    if (!isAdmin && !userScheduleId) return;
     setSaving(true);
     try {
       const res = await fetch("/api/calendar-events", {
@@ -89,12 +101,16 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
           date: newDate,
           description: newDescription || null,
           category: newCategory,
-          scheduleId: userScheduleId,
+          scheduleId: isAdmin ? null : userScheduleId,
         }),
       });
       if (res.ok) {
         const created = await res.json();
-        setEvents((prev) => [...prev, { ...created, createdByName: "You" }]);
+        setEvents((prev) => [...prev, {
+          ...created,
+          createdByName: "You",
+          createdById: currentUserId,
+        }]);
         setModalOpen(false);
       }
     } finally {
@@ -104,7 +120,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
 
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (isVirtualEvent(id)) return; // safety check
+    if (isVirtualEvent(id)) return;
     const res = await fetch("/api/calendar-events", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -176,7 +192,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
                         onClick={(e) => e.stopPropagation()}
                         className={`group flex items-center justify-between gap-1 rounded px-1.5 py-0.5 ${meta.color}`}>
                         <span className="text-[10px] font-medium truncate">{ev.title}</span>
-                        {canEdit && !isVirtualEvent(ev.id) && (
+                        {canDeleteEvent(ev) && (
                           <button onClick={(e) => handleDelete(ev.id, e)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hover:text-red-500">
                             <Trash2 size={10} />
@@ -234,7 +250,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId }:
                         </div>
                       </div>
                     </div>
-                    {canEdit && !isVirtualEvent(ev.id) && (
+                    {canDeleteEvent(ev) && (
                       <button onClick={(e) => handleDelete(ev.id, e)}
                         className="text-muted-foreground hover:text-red-500 transition-colors shrink-0">
                         <Trash2 size={14} />
