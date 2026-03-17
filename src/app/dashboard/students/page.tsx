@@ -65,7 +65,7 @@ export default async function StudentsPage() {
   const scheduleOptions = schedules.map((s) => ({
     id: s.id,
     label: s.label,
-    tables: s.tables.map((t) => ({ id: t.id, name: t.name })),
+    tables: s.tables.map((t) => ({ id: t.id, name: t.facilitator.name }))
   }));
 
   return (

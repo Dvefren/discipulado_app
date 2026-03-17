@@ -6,6 +6,7 @@ export default async function CalendarPage() {
   const session = await auth();
   const role = (session?.user as any)?.role ?? "FACILITATOR";
 
+  // Fetch calendar events
   const events = await prisma.calendarEvent.findMany({
     orderBy: { date: "asc" },
     include: { createdBy: { select: { name: true } } },
@@ -20,5 +21,37 @@ export default async function CalendarPage() {
     createdByName: e.createdBy.name,
   }));
 
-  return <CalendarClient initialEvents={serialized as any} role={role} />;
+  // Fetch students with birthdays and inject as BIRTHDAY events
+  const studentsWithBirthdays = await prisma.student.findMany({
+    where: { birthdate: { not: null } },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      birthdate: true,
+    },
+  });
+
+  const currentYear = new Date().getFullYear();
+
+  const birthdayEvents = studentsWithBirthdays.map((s) => {
+    const bd = s.birthdate!;
+    // Set birthday to current year at noon UTC to avoid timezone shift
+    const thisYearBirthday = new Date(
+      Date.UTC(currentYear, bd.getUTCMonth(), bd.getUTCDate(), 12, 0, 0)
+    );
+
+    return {
+      id: `bday-${s.id}`,
+      title: `🎂 ${s.firstName} ${s.lastName}`,
+      date: thisYearBirthday.toISOString(),
+      description: null,
+      category: "BIRTHDAY" as string,
+      createdByName: "Auto",
+    };
+  });
+
+  const allEvents = [...serialized, ...birthdayEvents];
+
+  return <CalendarClient initialEvents={allEvents as any} role={role} />;
 }

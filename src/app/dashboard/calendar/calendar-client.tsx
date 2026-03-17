@@ -55,7 +55,8 @@ export function CalendarClient({ initialEvents, role }: Props) {
   function getEventsForDay(day: number) {
     return events.filter((e) => {
       const d = new Date(e.date);
-      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+      // Use UTC methods to avoid timezone offset shifting the day
+      return d.getUTCFullYear() === year && d.getUTCMonth() === month && d.getUTCDate() === day;
     });
   }
 
@@ -161,7 +162,7 @@ export function CalendarClient({ initialEvents, role }: Props) {
                         onClick={(e) => e.stopPropagation()}
                         className={`group flex items-center justify-between gap-1 rounded px-1.5 py-0.5 ${meta.color}`}>
                         <span className="text-[10px] font-medium truncate">{ev.title}</span>
-                        {canEdit && (
+                        {canEdit && !ev.id.startsWith("bday-") && (
                           <button onClick={(e) => handleDelete(ev.id, e)}
                             className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hover:text-red-500">
                             <Trash2 size={10} />
@@ -219,7 +220,7 @@ export function CalendarClient({ initialEvents, role }: Props) {
                         </div>
                       </div>
                     </div>
-                    {canEdit && (
+                    {canEdit && !ev.id.startsWith("bday-") && (
                       <button onClick={(e) => handleDelete(ev.id, e)}
                         className="text-muted-foreground hover:text-red-500 transition-colors shrink-0">
                         <Trash2 size={14} />

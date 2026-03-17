@@ -1,13 +1,10 @@
 "use client";
-
 import { useState, useRef } from "react";
 import {
   X, Plus, Phone, MapPin, Calendar, ChevronLeft,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp,
 } from "lucide-react";
-
 type AttendanceStatus = "PRESENT" | "ABSENT" | "PREVIEWED" | "RECOVERED";
-
 interface AttendanceRecord {
   id: string;
   status: string;
@@ -15,7 +12,6 @@ interface AttendanceRecord {
   className: string;
   classDate: string;
 }
-
 interface Student {
   id: string;
   firstName: string;
@@ -32,49 +28,40 @@ interface Student {
   createdAt: string;
   attendance: AttendanceRecord[];
 }
-
 interface ProfileQuestion {
   id: string;
   question: string;
   type: string;
   options: string[] | null;
 }
-
 interface ScheduleOption {
   id: string;
   label: string;
   tables: { id: string; name: string }[];
 }
-
 interface Props {
   students: Student[];
   scheduleOptions: ScheduleOption[];
   profileQuestions: ProfileQuestion[];
   role: string;
 }
-
 const statusMeta: Record<AttendanceStatus, { color: string; label: string; light: string }> = {
   PRESENT:   { color: "bg-green-500",  label: "Present",   light: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
   ABSENT:    { color: "bg-red-400",    label: "Absent",    light: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
   PREVIEWED: { color: "bg-blue-400",   label: "Preview",   light: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
   RECOVERED: { color: "bg-yellow-400", label: "Recovered", light: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
 };
-
 const ATTENDED: AttendanceStatus[] = ["PRESENT", "PREVIEWED", "RECOVERED"];
-
 function isAttended(status: string) {
   return ATTENDED.includes(status as AttendanceStatus);
 }
-
 function getMeta(status: string) {
   return statusMeta[status as AttendanceStatus] ?? { color: "bg-gray-300", label: status, light: "bg-gray-100 text-gray-600" };
 }
-
 // ─── Attendance bar ──────────────────────────────────────
 function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
   const total = attendance.length;
   if (total === 0) return <p className="text-xs text-muted-foreground">No classes recorded yet.</p>;
-
   const counts = {
     PRESENT:   attendance.filter((a) => a.status === "PRESENT").length,
     ABSENT:    attendance.filter((a) => a.status === "ABSENT").length,
@@ -84,7 +71,6 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
   const effective = counts.PRESENT + counts.PREVIEWED + counts.RECOVERED;
   const pct = Math.round((effective / total) * 100);
   const order: AttendanceStatus[] = ["PRESENT", "PREVIEWED", "RECOVERED", "ABSENT"];
-
   return (
     <div>
       <div className="flex h-2 rounded-full overflow-hidden gap-px mb-3">
@@ -121,7 +107,6 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
     </div>
   );
 }
-
 // ─── Student profile ─────────────────────────────────────
 function StudentProfile({
   student,
@@ -141,12 +126,10 @@ function StudentProfile({
   const recovered = student.attendance.filter((a) => a.status === "RECOVERED").length;
   const effective = present + preview + recovered;
   const pct = total > 0 ? Math.round((effective / total) * 100) : 0;
-
   const [showList, setShowList] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>(student.profileNotes ?? {});
   const [savingNotes, setSavingNotes] = useState(false);
   const [savedNotes, setSavedNotes] = useState(false);
-
   async function saveNotes() {
     setSavingNotes(true);
     await fetch("/api/students", {
@@ -159,11 +142,9 @@ function StudentProfile({
     setTimeout(() => setSavedNotes(false), 2000);
     onUpdated({ ...student, profileNotes: notes });
   }
-
   const enrolledDate = new Date(student.createdAt).toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric",
   });
-
   return (
     <div>
       <button
@@ -172,7 +153,6 @@ function StudentProfile({
       >
         <ChevronLeft size={14} /> Back to students
       </button>
-
       {/* Header */}
       <div className="flex items-start justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -193,7 +173,6 @@ function StudentProfile({
           <p className="text-xs text-muted-foreground">attendance</p>
         </div>
       </div>
-
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3">
@@ -225,7 +204,6 @@ function StudentProfile({
           <p className="text-sm font-semibold text-foreground">{enrolledDate}</p>
         </div>
       </div>
-
       {/* Attendance report */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
@@ -267,7 +245,6 @@ function StudentProfile({
           </div>
         )}
       </div>
-
       {/* Personal info */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
@@ -306,7 +283,6 @@ function StudentProfile({
           )}
         </div>
       </div>
-
       {/* Church questions */}
       {profileQuestions.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
@@ -368,7 +344,6 @@ function StudentProfile({
     </div>
   );
 }
-
 // ─── Add Student Modal ────────────────────────────────────
 function AddStudentModal({
   scheduleOptions,
@@ -390,13 +365,10 @@ function AddStudentModal({
     firstName: "", lastName: "", phone: "", address: "", birthdate: "",
   });
   const [notes, setNotes] = useState<Record<string, string>>({});
-
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
-
   function setField(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
-
   async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -404,7 +376,7 @@ function AddStudentModal({
     try {
       const fd = new FormData();
       fd.append("image", file);
-      const res = await fetch("/api/ocr", { method: "POST", body: fd });
+      const res = await fetch("/api/ocr/student", { method: "POST", body: fd });
       if (res.ok) {
         const data = await res.json();
         setForm((f) => ({
@@ -415,14 +387,24 @@ function AddStudentModal({
           address:   data.address   ?? f.address,
           birthdate: data.birthdate ?? f.birthdate,
         }));
-        if (data.profileNotes) setNotes(data.profileNotes);
+        // Map church answers (keyed by question text) → notes (keyed by question ID)
+        if (data.churchAnswers) {
+          const mapped: Record<string, string> = {};
+          for (const q of profileQuestions) {
+            if (data.churchAnswers[q.question]) {
+              mapped[q.id] = data.churchAnswers[q.question];
+            }
+          }
+          if (Object.keys(mapped).length > 0) {
+            setNotes((prev) => ({ ...prev, ...mapped }));
+          }
+        }
       }
     } finally {
       setScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
-
   async function handleSave() {
     if (!form.firstName || !form.lastName || !selectedTableId) return;
     setSaving(true);
@@ -438,14 +420,12 @@ function AddStudentModal({
         }),
       });
       if (res.ok) {
-        // Refresh the page to get updated data
         window.location.reload();
       }
     } finally {
       setSaving(false);
     }
   }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -477,7 +457,6 @@ function AddStudentModal({
             </button>
           </div>
         </div>
-
         <div className="p-6 space-y-4">
           {/* Basic info */}
           <div className="grid grid-cols-2 gap-3">
@@ -492,7 +471,6 @@ function AddStudentModal({
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
@@ -505,13 +483,11 @@ function AddStudentModal({
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
-
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
             <input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Street, Colony, City"
               className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Schedule *</label>
@@ -522,15 +498,14 @@ function AddStudentModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Table *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitator *</label>
               <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Select table</option>
+                <option value="">Select facilitator</option>
                 {availableTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           </div>
-
           {/* Church questions */}
           {profileQuestions.length > 0 && (
             <div className="border-t border-border pt-4">
@@ -558,7 +533,6 @@ function AddStudentModal({
               </div>
             </div>
           )}
-
           <div className="flex gap-2 pt-2">
             <button onClick={onClose}
               className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">
@@ -574,7 +548,6 @@ function AddStudentModal({
     </div>
   );
 }
-
 // ─── Main list ───────────────────────────────────────────
 export function StudentsClient({ students: initialStudents, scheduleOptions, profileQuestions, role }: Props) {
   const [students, setStudents] = useState(initialStudents);
@@ -583,18 +556,15 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const canAdd    = role === "ADMIN" || role === "SECRETARY";
   const canDelete = role === "ADMIN" || role === "SECRETARY";
   const scheduleLabels = scheduleOptions.map((s) => s.label);
-
   const filtered = students.filter((s) => {
     const matchSchedule = filter === "all" || s.scheduleLabel === filter;
     const matchSearch = search.trim() === "" ||
       `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
     return matchSchedule && matchSearch;
   });
-
   // CSV export
   function exportCSV() {
     const headers = ["Name", "Schedule", "Facilitator", "Table", "Phone", "Birthdate", "Address", "Attendance %"];
@@ -622,7 +592,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
     a.click();
     URL.revokeObjectURL(url);
   }
-
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!confirm("Delete this student? This action cannot be undone.")) return;
@@ -638,7 +607,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
     }
     setDeletingId(null);
   }
-
   if (selectedStudent) {
     return (
       <div>
@@ -655,7 +623,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
       </div>
     );
   }
-
   return (
     <div>
       {/* Header */}
@@ -674,7 +641,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
           )}
         </div>
       </div>
-
       {/* Search + filters */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <input type="text" placeholder="Search students..." value={search}
@@ -689,7 +655,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
           ))}
         </div>
       </div>
-
       {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full">
@@ -744,7 +709,6 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
           </tbody>
         </table>
       </div>
-
       {modalOpen && (
         <AddStudentModal
           scheduleOptions={scheduleOptions}
