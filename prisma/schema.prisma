@@ -39,6 +39,15 @@ enum AbsentReason {
   OTHER
 }
 
+enum EventCategory {
+  BIRTHDAY
+  CLASS
+  COURSE_DATE
+  SNACK
+  DYNAMICS
+  OTHER
+}
+
 // ─── AUTH & USERS ───────────────────────────────────────
 
 model User {
@@ -54,6 +63,7 @@ model User {
   facilitator   Facilitator?
   scheduleLeaders ScheduleLeader[]
   secretaries     Secretary[]
+  calendarEvents  CalendarEvent[]
 }
 
 // ─── CORE MODELS ────────────────────────────────────────
@@ -189,6 +199,8 @@ model Attendance {
   @@unique([studentId, classId])
 }
 
+// ── Cam Scanner ───────────────────────────────────────
+
 model ProfileQuestion {
   id        String   @id @default(cuid())
   question  String
@@ -199,3 +211,19 @@ model ProfileQuestion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// ─── CALENDAR ───────────────────────────────────────────
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  title       String
+  date        DateTime
+  description String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  category    EventCategory @default(OTHER)
+}
+

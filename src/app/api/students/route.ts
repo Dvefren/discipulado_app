@@ -1,54 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  const { id } = await req.json();
+  await prisma.student.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  const { id, profileNotes } = await req.json();
+  const updated = await prisma.student.update({
+    where: { id },
+    data: { profileNotes },
+  });
+  return NextResponse.json({ ok: true, id: updated.id });
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
-  try {
-    const body = await req.json();
-    const { firstName, lastName, phone, address, birthdate, tableId, profileNotes } = body;
-
-    if (!firstName || !lastName || !tableId) {
-      return NextResponse.json(
-        { error: "firstName, lastName, and tableId are required" },
-        { status: 400 }
-      );
-    }
-
-    // Verify the table exists
-    const table = await prisma.facilitatorTable.findUnique({
-      where: { id: tableId },
-    });
-
-    if (!table) {
-      return NextResponse.json(
-        { error: "Table not found" },
-        { status: 404 }
-      );
-    }
-
-    const student = await prisma.student.create({
-      data: {
-        firstName,
-        lastName,
-        phone: phone || null,
-        address: address || null,
-        birthdate: birthdate ? new Date(birthdate) : null,
-        tableId,
-        profileNotes: profileNotes || null,
-      },
-    });
-
-    return NextResponse.json({ success: true, student }, { status: 201 });
-  } catch (error: any) {
-    console.error("Create student error:", error);
-    return NextResponse.json(
-      { error: "Failed to create student" },
-      { status: 500 }
-    );
+  const { firstName, lastName, phone, address, birthdate, tableId, profileNotes } = await req.json();
+  if (!firstName || !lastName || !tableId) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+  const student = await prisma.student.create({
+    data: {
+      firstName,
+      lastName,
+      phone: phone || null,
+      address: address || null,
+      birthdate: birthdate ? new Date(birthdate) : null,
+      tableId,
+      profileNotes: profileNotes ?? {},
+    },
+  });
+  return NextResponse.json(student, { status: 201 });
 }
