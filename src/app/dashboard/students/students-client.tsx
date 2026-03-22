@@ -46,10 +46,10 @@ interface Props {
   role: string;
 }
 const statusMeta: Record<AttendanceStatus, { color: string; label: string; light: string }> = {
-  PRESENT:   { color: "bg-green-500",  label: "Present",   light: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
-  ABSENT:    { color: "bg-red-400",    label: "Absent",    light: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
-  PREVIEWED: { color: "bg-blue-400",   label: "Preview",   light: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-  RECOVERED: { color: "bg-yellow-400", label: "Recovered", light: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  PRESENT:   { color: "bg-green-500",  label: "Presente",    light: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
+  ABSENT:    { color: "bg-red-400",    label: "Ausente",     light: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
+  PREVIEWED: { color: "bg-blue-400",   label: "Adelantó",    light: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
+  RECOVERED: { color: "bg-yellow-400", label: "Recuperó",    light: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" },
 };
 const ATTENDED: AttendanceStatus[] = ["PRESENT", "PREVIEWED", "RECOVERED"];
 function isAttended(status: string) {
@@ -61,7 +61,7 @@ function getMeta(status: string) {
 // ─── Attendance bar ──────────────────────────────────────
 function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
   const total = attendance.length;
-  if (total === 0) return <p className="text-xs text-muted-foreground">No classes recorded yet.</p>;
+  if (total === 0) return <p className="text-xs text-muted-foreground">Sin clases registradas aún.</p>;
   const counts = {
     PRESENT:   attendance.filter((a) => a.status === "PRESENT").length,
     ABSENT:    attendance.filter((a) => a.status === "ABSENT").length,
@@ -82,7 +82,7 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
         })}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mb-4">
-        <span className="font-medium text-foreground">{pct}% attendance</span>
+        <span className="font-medium text-foreground">{pct}% asistencia</span>
         {order.map((s) =>
           counts[s] > 0 ? (
             <span key={s} className="flex items-center gap-1">
@@ -180,7 +180,7 @@ function EditStudentModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 pb-0">
-          <h2 className="text-sm font-semibold text-foreground">Edit Student</h2>
+          <h2 className="text-sm font-semibold text-foreground">Editar alumno</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X size={16} />
           </button>
@@ -188,47 +188,47 @@ function EditStudentModal({
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">First name *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre *</label>
               <input type="text" value={form.firstName} onChange={(e) => setField("firstName", e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Last name *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label>
               <input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label>
               <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Birthdate</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label>
               <input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label>
             <input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Schedule *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label>
               <select value={selectedScheduleId} onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                <option value="">Select schedule</option>
+                <option value="">Seleccionar horario</option>
                 {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitator *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label>
               <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Select facilitator</option>
+                <option value="">Seleccionar facilitador</option>
                 {availableTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
@@ -236,11 +236,11 @@ function EditStudentModal({
           <div className="flex gap-2 pt-2">
             <button onClick={onClose}
               className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">
-              Cancel
+              Cancelar
             </button>
             <button onClick={handleSave} disabled={!form.firstName || !form.lastName || !selectedTableId || saving}
               className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-              {saving ? "Saving..." : "Save changes"}
+              {saving ? "Guardando..." : "Guardar cambios"}
             </button>
           </div>
         </div>
@@ -291,8 +291,8 @@ function StudentProfile({
     setTimeout(() => setSavedNotes(false), 2000);
     onUpdated({ ...student, profileNotes: notes });
   }
-  const enrolledDate = new Date(student.createdAt).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+  const enrolledDate = new Date(student.createdAt).toLocaleDateString("es-MX", {
+    day: "numeric", month: "short", year: "numeric",
   });
   return (
     <div>
@@ -300,7 +300,7 @@ function StudentProfile({
         onClick={onBack}
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 transition-colors"
       >
-        <ChevronLeft size={14} /> Back to students
+        <ChevronLeft size={14} /> Volver a alumnos
       </button>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-5">
@@ -321,56 +321,56 @@ function StudentProfile({
           {canEdit && (
             <button onClick={() => setEditOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors">
-              <Pencil size={12} /> Edit
+              <Pencil size={12} /> Editar
             </button>
           )}
           <div className="text-right">
             <p className="text-2xl font-bold text-foreground">{pct}%</p>
-            <p className="text-xs text-muted-foreground">attendance</p>
+            <p className="text-xs text-muted-foreground">asistencia</p>
           </div>
         </div>
       </div>
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3">
-          <p className="text-xs text-green-700 dark:text-green-400 mb-1">Present</p>
+          <p className="text-xs text-green-700 dark:text-green-400 mb-1">Presente</p>
           <p className="text-xl font-semibold text-green-800 dark:text-green-300">{present}</p>
         </div>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
-          <p className="text-xs text-red-700 dark:text-red-400 mb-1">Absent</p>
+          <p className="text-xs text-red-700 dark:text-red-400 mb-1">Ausente</p>
           <p className="text-xl font-semibold text-red-800 dark:text-red-300">{absent}</p>
         </div>
         {preview > 0 && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
-            <p className="text-xs text-blue-700 dark:text-blue-400 mb-1">Preview</p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mb-1">Adelantó</p>
             <p className="text-xl font-semibold text-blue-800 dark:text-blue-300">{preview}</p>
           </div>
         )}
         {recovered > 0 && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3">
-            <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-1">Recovered</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-1">Recuperó</p>
             <p className="text-xl font-semibold text-yellow-800 dark:text-yellow-300">{recovered}</p>
           </div>
         )}
         <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">Total classes</p>
+          <p className="text-xs text-muted-foreground mb-1">Total clases</p>
           <p className="text-xl font-semibold text-foreground">{total}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-3">
-          <p className="text-xs text-muted-foreground mb-1">Enrolled</p>
+          <p className="text-xs text-muted-foreground mb-1">Inscrito</p>
           <p className="text-sm font-semibold text-foreground">{enrolledDate}</p>
         </div>
       </div>
       {/* Attendance report */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <div className="flex flex-col gap-2 mb-3">
-          <h3 className="text-sm font-medium text-foreground">Attendance report</h3>
+          <h3 className="text-sm font-medium text-foreground">Reporte de asistencia</h3>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Present</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Preview</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" />Recovered</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Absent</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted" />No record</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Presente</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Adelantó</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" />Recuperó</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Ausente</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted" />Sin registro</span>
           </div>
         </div>
         <AttendanceBar attendance={student.attendance} />
@@ -379,7 +379,7 @@ function StudentProfile({
           className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           {showList ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {showList ? "Hide" : "Show"} detailed list
+          {showList ? "Ocultar" : "Ver"} lista detallada
         </button>
         {showList && (
           <div className="mt-3 space-y-1">
@@ -390,7 +390,7 @@ function StudentProfile({
                   <span className="text-foreground truncate min-w-0">{a.className}</span>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-muted-foreground hidden sm:inline">
-                      {new Date(a.classDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {new Date(a.classDate).toLocaleDateString("es-MX", { month: "short", day: "numeric" })}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full font-medium ${meta.light}`}>
                       {meta.label}
@@ -405,12 +405,12 @@ function StudentProfile({
       {/* Personal info */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Personal Information
+          Información personal
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {student.phone && (
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Phone</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Teléfono</p>
               <div className="flex items-center gap-1.5 text-sm text-foreground">
                 <Phone size={12} className="text-muted-foreground" />
                 {student.phone}
@@ -419,16 +419,16 @@ function StudentProfile({
           )}
           {student.birthdate && (
             <div>
-              <p className="text-xs text-muted-foreground mb-0.5">Birthdate</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Fecha de nacimiento</p>
               <div className="flex items-center gap-1.5 text-sm text-foreground">
                 <Calendar size={12} className="text-muted-foreground" />
-                {new Date(student.birthdate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                {new Date(student.birthdate).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}
               </div>
             </div>
           )}
           {student.address && (
             <div className="sm:col-span-2">
-              <p className="text-xs text-muted-foreground mb-0.5">Address</p>
+              <p className="text-xs text-muted-foreground mb-0.5">Dirección</p>
               <div className="flex items-center gap-1.5 text-sm text-foreground">
                 <MapPin size={12} className="text-muted-foreground" />
                 {student.address}
@@ -436,7 +436,7 @@ function StudentProfile({
             </div>
           )}
           {!student.phone && !student.birthdate && !student.address && (
-            <p className="text-sm text-muted-foreground col-span-2">No personal information recorded.</p>
+            <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>
           )}
         </div>
       </div>
@@ -445,14 +445,14 @@ function StudentProfile({
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Church Questions
+              Preguntas de la iglesia
             </h3>
             <button
               onClick={saveNotes}
               disabled={savingNotes}
               className="px-3 py-1.5 rounded-lg text-xs bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {savingNotes ? "Saving..." : savedNotes ? "Saved ✓" : "Save answers"}
+              {savingNotes ? "Guardando..." : savedNotes ? "Guardado ✓" : "Guardar respuestas"}
             </button>
           </div>
           <div className="space-y-4">
@@ -481,7 +481,7 @@ function StudentProfile({
                     onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))}
                     className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="">Select...</option>
+                    <option value="">Seleccionar...</option>
                     {q.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 ) : (
@@ -490,7 +490,7 @@ function StudentProfile({
                     value={notes[q.id] ?? ""}
                     onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))}
                     className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="Write your answer..."
+                    placeholder="Escribe tu respuesta..."
                   />
                 )}
               </div>
@@ -599,16 +599,16 @@ function AddStudentModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 pb-0">
-          <h2 className="text-sm font-semibold text-foreground">Add Student</h2>
+          <h2 className="text-sm font-semibold text-foreground">Agregar alumno</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={scanning}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              title="Scan registration form"
+              title="Escanear formulario"
             >
               {scanning ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
-              {scanning ? "Scanning..." : "Scan form"}
+              {scanning ? "Escaneando..." : "Escanear"}
             </button>
             <input
               ref={fileInputRef}
@@ -626,54 +626,54 @@ function AddStudentModal({
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">First name *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Nombre *</label>
               <input type="text" value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} placeholder="María"
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Last name *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label>
               <input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="García"
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Phone</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label>
               <input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} placeholder="+52 868 000 0000"
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Birthdate</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label>
               <input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-            <input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Street, Colony, City"
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label>
+            <input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Calle, Colonia, Ciudad"
               className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Schedule *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label>
               <select value={selectedScheduleId} onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
-                <option value="">Select schedule</option>
+                <option value="">Seleccionar horario</option>
                 {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitator *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label>
               <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId}
                 className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Select facilitator</option>
+                <option value="">Seleccionar facilitador</option>
                 {availableTables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </div>
           </div>
           {profileQuestions.length > 0 && (
             <div className="border-t border-border pt-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Church Questions</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Preguntas de la iglesia</p>
               <div className="space-y-3">
                 {profileQuestions.map((q) => (
                   <div key={q.id}>
@@ -690,7 +690,7 @@ function AddStudentModal({
                     ) : (
                       <input type="text" value={notes[q.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))}
                         className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                        placeholder="Answer..." />
+                        placeholder="Respuesta..." />
                     )}
                   </div>
                 ))}
@@ -700,11 +700,11 @@ function AddStudentModal({
           <div className="flex gap-2 pt-2">
             <button onClick={onClose}
               className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">
-              Cancel
+              Cancelar
             </button>
             <button onClick={handleSave} disabled={!form.firstName || !form.lastName || !selectedTableId || saving}
               className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-              {saving ? "Saving..." : "Add student"}
+              {saving ? "Guardando..." : "Agregar alumno"}
             </button>
           </div>
         </div>
@@ -730,7 +730,7 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
     return matchSchedule && matchSearch;
   });
   function exportCSV() {
-    const headers = ["Name", "Schedule", "Facilitator", "Table", "Phone", "Birthdate", "Address", "Attendance %"];
+    const headers = ["Nombre", "Horario", "Facilitador", "Mesa", "Teléfono", "Nacimiento", "Dirección", "Asistencia %"];
     const rows = filtered.map((s) => {
       const total = s.attendance.length;
       const effective = s.attendance.filter((a) => isAttended(a.status)).length;
@@ -741,7 +741,7 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
         s.facilitatorName,
         s.tableName,
         s.phone ?? "",
-        s.birthdate ? new Date(s.birthdate).toLocaleDateString() : "",
+        s.birthdate ? new Date(s.birthdate).toLocaleDateString("es-MX") : "",
         s.address ?? "",
         `${pct}%`,
       ].map((v) => `"${v}"`).join(",");
@@ -751,13 +751,13 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "students.csv";
+    a.download = "alumnos.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
   async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm("Delete this student? This action cannot be undone.")) return;
+    if (!confirm("¿Eliminar este alumno? Esta acción no se puede deshacer.")) return;
     setDeletingId(id);
     const res = await fetch("/api/students", {
       method: "DELETE",
@@ -773,7 +773,7 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
   if (selectedStudent) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-foreground mb-5">Students</h1>
+        <h1 className="text-lg font-medium text-foreground mb-5">Alumnos</h1>
         <StudentProfile
           student={selectedStudent}
           profileQuestions={profileQuestions}
@@ -791,29 +791,29 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-foreground">Students</h1>
+        <h1 className="text-lg font-medium text-foreground">Alumnos</h1>
         <div className="flex items-center gap-2">
           <button onClick={exportCSV}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors">
-            <Download size={13} /> Export CSV
+            <Download size={13} /> Exportar CSV
           </button>
           {canAdd && (
             <button onClick={() => setModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity">
-              <Plus size={13} /> Add student
+              <Plus size={13} /> Agregar alumno
             </button>
           )}
         </div>
       </div>
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input type="text" placeholder="Search students..." value={search}
+        <input type="text" placeholder="Buscar alumnos..." value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
         <div className="flex gap-1.5 flex-wrap">
           {["all", ...scheduleLabels].map((label) => (
             <button key={label} onClick={() => setFilter(label)}
               className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${filter === label ? "bg-muted font-medium text-foreground border-border" : "text-muted-foreground border-border hover:text-foreground"}`}>
-              {label === "all" ? "All" : label.replace("Wednesday", "Wed").replace("Sunday", "Sun")}
+              {label === "all" ? "Todos" : label.replace("Wednesday", "Mié").replace("Sunday", "Dom")}
             </button>
           ))}
         </div>
@@ -822,10 +822,10 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Name</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Schedule</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Facilitator</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Attendance</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Nombre</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Horario</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Facilitador</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Asistencia</th>
               {canDelete && <th className="px-4 py-2.5 w-10" />}
             </tr>
           </thead>
@@ -833,7 +833,7 @@ export function StudentsClient({ students: initialStudents, scheduleOptions, pro
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={canDelete ? 5 : 4} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  No students found.
+                  No se encontraron alumnos.
                 </td>
               </tr>
             ) : (

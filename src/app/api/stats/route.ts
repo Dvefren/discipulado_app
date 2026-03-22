@@ -42,7 +42,24 @@ export async function GET() {
   const totalFacilitators = schedules.reduce((sum, s) => sum + getFilteredTables(s.tables).length, 0);
 
   const allClassIds = schedules.flatMap((s) => s.classes.map((c) => c.id));
+  if (allClassIds.length === 0) {
+    return NextResponse.json({
+      courseName: course.name,
+      startDate: course.startDate.toLocaleDateString("es-MX", { month: "short", day: "numeric" }),
+      endDate: course.endDate.toLocaleDateString("es-MX", { month: "short", day: "numeric", year: "numeric" }),
+      totalStudents, totalFacilitators, scheduleCount: schedules.length,
+      overallAttendance: null, attendanceTrend: [],
+      studentsPerSchedule: schedules.map((s) => ({
+        schedule: s.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
+        students: getFilteredTables(s.tables).reduce((sum, t) => sum + t._count.students, 0),
+      })),
+      attendanceBySchedule: [], reasonsBreakdown: [],
+      topFacilitators: [], bottomFacilitators: [],
+      heatmapData: [], recentClasses: [], role: scope.role,
+    });
+  }
 
+  // Build student filter for scoped queries
   let studentFilter: any = {};
   if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
     studentFilter.table = { scheduleId: { in: scope.scheduleIds } };
@@ -51,27 +68,95 @@ export async function GET() {
     studentFilter.tableId = { in: scope.tableIds };
   }
 
-  // Overall attendance
-  const totalAttendanceRecords = await prisma.attendance.count({ where: { classId: { in: allClassIds }, student: studentFilter } });
-  const presentRecords = await prisma.attendance.count({ where: { classId: { in: allClassIds }, status: "PRESENT", student: studentFilter } });
-  const overallAttendance = totalAttendanceRecords > 0 ? Math.round((presentRecords / totalAttendanceRecords) * 100) : null;
+  // ─── BULK QUERIES (all in parallel) ────────────────────
+  // Instead of 200+ sequential queries, we do ~6 bulk queries
 
-  // Attendance trend — sorted by class number
+  const [
+    // 1. All attendance grouped by classId + status
+    attendanceByClass,
+    // 2. Absent reasons breakdown
+    absentReasons,
+    // 3. All students with their tableId (for facilitator stats)
+    allStudentsWithTable,
+    // 4. All attendance records with studentId (for facilitator stats)
+    attendanceByStudent,
+  ] = await Promise.all([
+    prisma.attendance.groupBy({
+      by: ["classId", "status"],
+      where: { classId: { in: allClassIds }, student: studentFilter },
+      _count: { _all: true },
+    }),
+    prisma.attendance.groupBy({
+      by: ["absentReason"],
+      where: { classId: { in: allClassIds }, status: "ABSENT", student: studentFilter },
+      _count: { _all: true },
+    }),
+    prisma.student.findMany({
+      where: Object.keys(studentFilter).length > 0 ? studentFilter : { table: { scheduleId: { in: schedules.map((s) => s.id) } } },
+      select: { id: true, tableId: true },
+    }),
+    prisma.attendance.groupBy({
+      by: ["studentId", "status"],
+      where: { classId: { in: allClassIds }, student: studentFilter },
+      _count: { _all: true },
+    }),
+  ]);
+
+  // ─── BUILD LOOKUP MAPS ─────────────────────────────────
+
+  // classId → { total, present }
+  const classStatsMap = new Map<string, { total: number; present: number }>();
+  for (const row of attendanceByClass) {
+    const entry = classStatsMap.get(row.classId) || { total: 0, present: 0 };
+    entry.total += row._count._all;
+    if (row.status === "PRESENT") entry.present += row._count._all;
+    classStatsMap.set(row.classId, entry);
+  }
+
+  // studentId → tableId
+  const studentTableMap = new Map<string, string>();
+  for (const s of allStudentsWithTable) {
+    studentTableMap.set(s.id, s.tableId);
+  }
+
+  // tableId → { total, present }
+  const tableStatsMap = new Map<string, { total: number; present: number }>();
+  for (const row of attendanceByStudent) {
+    const tableId = studentTableMap.get(row.studentId);
+    if (!tableId) continue;
+    const entry = tableStatsMap.get(tableId) || { total: 0, present: 0 };
+    entry.total += row._count._all;
+    if (row.status === "PRESENT") entry.present += row._count._all;
+    tableStatsMap.set(tableId, entry);
+  }
+
+  // ─── COMPUTE STATS FROM MAPS (no more DB calls) ───────
+
+  // Overall attendance
+  let totalAttendanceRecords = 0;
+  let totalPresentRecords = 0;
+  for (const stats of classStatsMap.values()) {
+    totalAttendanceRecords += stats.total;
+    totalPresentRecords += stats.present;
+  }
+  const overallAttendance = totalAttendanceRecords > 0
+    ? Math.round((totalPresentRecords / totalAttendanceRecords) * 100)
+    : null;
+
+  // Attendance trend (first schedule only)
   const attendanceTrend: any[] = [];
   if (schedules.length > 0) {
-    const firstSchedule = schedules[0];
-    for (const cls of firstSchedule.classes) {
-      const totalMarked = await prisma.attendance.count({ where: { classId: cls.id, student: studentFilter } });
-      const presentInClass = await prisma.attendance.count({ where: { classId: cls.id, status: "PRESENT", student: studentFilter } });
-      if (totalMarked > 0) {
+    for (const cls of schedules[0].classes) {
+      const stats = classStatsMap.get(cls.id);
+      if (stats && stats.total > 0) {
         const classNum = parseInt(cls.name.match(/\d+/)?.[0] || "0");
         attendanceTrend.push({
           className: cls.topic || cls.name,
           label: `C${classNum}`,
           classNum,
-          present: presentInClass,
-          total: totalMarked,
-          percent: Math.round((presentInClass / totalMarked) * 100),
+          present: stats.present,
+          total: stats.total,
+          percent: Math.round((stats.present / stats.total) * 100),
         });
       }
     }
@@ -80,53 +165,54 @@ export async function GET() {
 
   // Students per schedule
   const studentsPerSchedule = schedules.map((s) => ({
-    schedule: s.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
+    schedule: s.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
     students: getFilteredTables(s.tables).reduce((sum, t) => sum + t._count.students, 0),
   }));
 
   // Attendance by schedule
-  const attendanceBySchedule: any[] = [];
-  for (const schedule of schedules) {
-    const sClassIds = schedule.classes.map((c) => c.id);
-    const sFilter: any = { ...studentFilter, table: { scheduleId: schedule.id } };
-    const sTotal = await prisma.attendance.count({ where: { classId: { in: sClassIds }, student: sFilter } });
-    const sPresent = await prisma.attendance.count({ where: { classId: { in: sClassIds }, status: "PRESENT", student: sFilter } });
-    attendanceBySchedule.push({
-      schedule: schedule.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
+  const attendanceBySchedule = schedules.map((schedule) => {
+    const sClassIds = new Set(schedule.classes.map((c) => c.id));
+    let sTotal = 0;
+    let sPresent = 0;
+    for (const [classId, stats] of classStatsMap) {
+      if (sClassIds.has(classId)) {
+        sTotal += stats.total;
+        sPresent += stats.present;
+      }
+    }
+    return {
+      schedule: schedule.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
       percent: sTotal > 0 ? Math.round((sPresent / sTotal) * 100) : 0,
       present: sPresent,
       total: sTotal,
-    });
-  }
+    };
+  });
 
   // Absent reasons
-  const absentReasons = await prisma.attendance.groupBy({
-    by: ["absentReason"],
-    where: { classId: { in: allClassIds }, status: "ABSENT", student: studentFilter },
-    _count: { _all: true },
-  });
   const reasonsBreakdown = absentReasons
     .filter((r) => r.absentReason)
-    .map((r) => ({ reason: r.absentReason!.charAt(0) + r.absentReason!.slice(1).toLowerCase(), count: r._count._all }));
-  const noReasonCount = absentReasons.filter((r) => !r.absentReason).reduce((sum, r) => sum + r._count._all, 0);
-  if (noReasonCount > 0) reasonsBreakdown.push({ reason: "No reason", count: noReasonCount });
+    .map((r) => ({
+      reason: r.absentReason!.charAt(0) + r.absentReason!.slice(1).toLowerCase(),
+      count: r._count._all,
+    }));
+  const noReasonCount = absentReasons
+    .filter((r) => !r.absentReason)
+    .reduce((sum, r) => sum + r._count._all, 0);
+  if (noReasonCount > 0) reasonsBreakdown.push({ reason: "Sin razón", count: noReasonCount });
 
-  // All facilitators ranked
+  // Facilitator rankings
   const allFacilitatorStats: any[] = [];
   for (const schedule of schedules) {
     for (const table of getFilteredTables(schedule.tables)) {
       if (table._count.students === 0) continue;
-      const studentIds = await prisma.student.findMany({ where: { tableId: table.id }, select: { id: true } });
-      const ids = studentIds.map((s) => s.id);
-      const tTotal = await prisma.attendance.count({ where: { studentId: { in: ids }, classId: { in: allClassIds } } });
-      const tPresent = await prisma.attendance.count({ where: { studentId: { in: ids }, classId: { in: allClassIds }, status: "PRESENT" } });
+      const stats = tableStatsMap.get(table.id) || { total: 0, present: 0 };
       allFacilitatorStats.push({
         name: table.facilitator.name,
-        schedule: schedule.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
+        schedule: schedule.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
         students: table._count.students,
-        percent: tTotal > 0 ? Math.round((tPresent / tTotal) * 100) : 0,
-        present: tPresent,
-        total: tTotal,
+        percent: stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0,
+        present: stats.present,
+        total: stats.total,
       });
     }
   }
@@ -137,26 +223,24 @@ export async function GET() {
   const heatmapData: any[] = [];
   for (const schedule of schedules) {
     for (const cls of schedule.classes) {
-      const classNum = parseInt(cls.name.match(/\d+/)?.[0] || "0");
-      const tTotal = await prisma.attendance.count({ where: { classId: cls.id, student: studentFilter } });
-      const tPresent = await prisma.attendance.count({ where: { classId: cls.id, status: "PRESENT", student: studentFilter } });
-      if (tTotal > 0) {
+      const stats = classStatsMap.get(cls.id);
+      if (stats && stats.total > 0) {
+        const classNum = parseInt(cls.name.match(/\d+/)?.[0] || "0");
         heatmapData.push({
-          schedule: schedule.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
+          schedule: schedule.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
           classNum,
           className: `C${classNum}`,
-          percent: Math.round((tPresent / tTotal) * 100),
-          present: tPresent,
-          total: tTotal,
+          percent: Math.round((stats.present / stats.total) * 100),
+          present: stats.present,
+          total: stats.total,
         });
       }
     }
   }
 
-  // Recent classes — grouped by class name, showing per-schedule breakdown
+  // Recent classes
   const now = new Date();
-  const recentClassesMap = new Map<string, { name: string; schedules: { schedule: string; date: string; present: number; total: number; percent: number }[] }>();
-
+  const recentClassesMap = new Map<string, { name: string; schedules: any[] }>();
   for (const schedule of schedules) {
     const pastClasses = schedule.classes
       .filter((c) => c.date <= now && c.date.getUTCFullYear() !== 2099)
@@ -168,29 +252,27 @@ export async function GET() {
       .slice(-3);
 
     for (const cls of pastClasses) {
-      const tTotal = await prisma.attendance.count({ where: { classId: cls.id, student: studentFilter } });
-      const tPresent = await prisma.attendance.count({ where: { classId: cls.id, status: "PRESENT", student: studentFilter } });
-      if (tTotal > 0) {
+      const stats = classStatsMap.get(cls.id);
+      if (stats && stats.total > 0) {
         const key = cls.name;
         if (!recentClassesMap.has(key)) {
           recentClassesMap.set(key, { name: cls.name, schedules: [] });
         }
         recentClassesMap.get(key)!.schedules.push({
-          schedule: schedule.label.replace("Wednesday", "Wed").replace("Sunday", "Sun"),
-          date: cls.date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-          present: tPresent,
-          total: tTotal,
-          percent: Math.round((tPresent / tTotal) * 100),
+          schedule: schedule.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
+          date: cls.date.toLocaleDateString("es-MX", { month: "short", day: "numeric", timeZone: "UTC" }),
+          present: stats.present,
+          total: stats.total,
+          percent: Math.round((stats.present / stats.total) * 100),
         });
       }
     }
   }
-  const recentClasses = [...recentClassesMap.values()];
 
   return NextResponse.json({
     courseName: course.name,
-    startDate: course.startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    endDate: course.endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    startDate: course.startDate.toLocaleDateString("es-MX", { month: "short", day: "numeric" }),
+    endDate: course.endDate.toLocaleDateString("es-MX", { month: "short", day: "numeric", year: "numeric" }),
     totalStudents,
     totalFacilitators,
     scheduleCount: schedules.length,
@@ -202,7 +284,7 @@ export async function GET() {
     topFacilitators,
     bottomFacilitators,
     heatmapData,
-    recentClasses,
+    recentClasses: [...recentClassesMap.values()],
     role: scope.role,
   });
 }

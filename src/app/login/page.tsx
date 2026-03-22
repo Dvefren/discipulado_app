@@ -79,16 +79,16 @@ export default function LoginPage() {
 
         if (remaining !== null && remaining <= 2 && remaining > 0) {
           setError(
-            `Invalid email or password. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining before lockout.`
+            `Correo o contraseña incorrecta. ${remaining} intento${remaining !== 1 ? "s" : ""} antes del bloqueo.`
           );
         } else if (remaining !== null && remaining <= 0) {
           setError(
-            "Too many failed attempts. Your account is temporarily locked for 15 minutes."
+            "Demasiados intentos fallidos. Tu cuenta está bloqueada temporalmente por 15 minutos."
           );
           setLocked(true);
           setLockMinutes(15);
         } else {
-          setError("Invalid email or password");
+          setError("Correo o contraseña incorrecta");
         }
       }
       setLoading(false);

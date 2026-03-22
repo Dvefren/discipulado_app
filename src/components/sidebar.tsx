@@ -14,15 +14,15 @@ import {
 type Role = "ADMIN" | "SCHEDULE_LEADER" | "SECRETARY" | "FACILITATOR";
 
 const allNavItems = [
-  { label: "Home", href: "/dashboard", icon: Home, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY"] },
-  { label: "Students", href: "/dashboard/students", icon: Users, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
-  { label: "Attendance", href: "/dashboard/attendance", icon: CheckSquare, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
-  { label: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
-  { label: "Courses", href: "/dashboard/courses", icon: Monitor, roles: ["ADMIN"] },
-  { label: "Calendar", href: "/dashboard/calendar", icon: Calendar, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
-  { label: "Facilitators", href: "/dashboard/facilitators", icon: UserCircle, roles: ["ADMIN"] },
-  { label: "Users", href: "/dashboard/users", icon: Shield, roles: ["ADMIN"] },
-  { label: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN"] },
+  { label: "Inicio", href: "/dashboard", icon: Home, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY"] },
+  { label: "Alumnos", href: "/dashboard/students", icon: Users, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
+  { label: "Asistencia", href: "/dashboard/attendance", icon: CheckSquare, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
+  { label: "Clases", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
+  { label: "Cursos", href: "/dashboard/courses", icon: Monitor, roles: ["ADMIN"] },
+  { label: "Calendario", href: "/dashboard/calendar", icon: Calendar, roles: ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] },
+  { label: "Facilitadores", href: "/dashboard/facilitators", icon: UserCircle, roles: ["ADMIN"] },
+  { label: "Usuarios", href: "/dashboard/users", icon: Shield, roles: ["ADMIN"] },
+  { label: "Ajustes", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 
 interface SidebarProps {
@@ -50,7 +50,7 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   const roleLabels: Record<Role, string> = {
-    ADMIN: "Admin", SCHEDULE_LEADER: "Leader", SECRETARY: "Secretary", FACILITATOR: "Facilitator",
+    ADMIN: "Administrador", SCHEDULE_LEADER: "Líder", SECRETARY: "Secretario(a)", FACILITATOR: "Facilitador(a)",
   };
 
   const sidebarContent = (
@@ -76,22 +76,20 @@ export function Sidebar({ user }: SidebarProps) {
       </nav>
 
       <div className="px-3 py-3 border-t border-border">
-        {/* Theme Toggle */}
         <button onClick={toggleTheme} className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors mb-1">
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          {theme === "dark" ? "Light mode" : "Dark mode"}
+          {theme === "dark" ? "Modo claro" : "Modo oscuro"}
         </button>
 
-        {/* User Info */}
         <div className="flex items-center gap-2 px-3 py-2">
-          <div className="w-7 h-7 rounded-full bg-red-600 bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
+          <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
             {user.name?.charAt(0).toUpperCase() || "U"}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-medium text-foreground truncate">{user.name}</p>
             <p className="text-[11px] text-muted-foreground truncate">{roleLabels[role]}</p>
           </div>
-          <button onClick={() => signOut({ callbackUrl: "/login" })} className="text-muted-foreground hover:text-foreground transition-colors" title="Sign out">
+          <button onClick={() => signOut({ callbackUrl: "/login" })} className="text-muted-foreground hover:text-foreground transition-colors" title="Cerrar sesión">
             <LogOut size={14} />
           </button>
         </div>

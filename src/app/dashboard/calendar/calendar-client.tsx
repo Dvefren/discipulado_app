@@ -24,12 +24,12 @@ interface Props {
 }
 
 const categoryMeta: Record<EventCategory, { label: string; color: string; dot: string }> = {
-  BIRTHDAY:    { label: "Birthday",    color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",         dot: "bg-pink-400"   },
-  CLASS:       { label: "Class",       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",         dot: "bg-blue-400"   },
-  COURSE_DATE: { label: "Course Date", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", dot: "bg-purple-500" },
-  SNACK:       { label: "Snack",       color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300", dot: "bg-orange-400" },
-  DYNAMICS:    { label: "Dynamics",    color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",         dot: "bg-teal-400"   },
-  OTHER:       { label: "Other",       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",            dot: "bg-gray-400"   },
+  BIRTHDAY:    { label: "Cumpleaños",    color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",         dot: "bg-pink-400"   },
+  CLASS:       { label: "Clase",       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",         dot: "bg-blue-400"   },
+  COURSE_DATE: { label: "Fecha del curso", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300", dot: "bg-purple-500" },
+  SNACK:       { label: "Botana",       color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300", dot: "bg-orange-400" },
+  DYNAMICS:    { label: "Dinámica",    color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",         dot: "bg-teal-400"   },
+  OTHER:       { label: "Otro",       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",            dot: "bg-gray-400"   },
 };
 
 // Categories that can be manually created (not BIRTHDAY or CLASS — those are auto)
@@ -138,7 +138,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, c
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-medium text-foreground">Calendar</h1>
+        <h1 className="text-lg font-medium text-foreground">Calendario</h1>
         {canEdit && (
           <button onClick={() => openModal()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity">
@@ -218,7 +218,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, c
             <div>
               <h3 className="text-sm font-medium text-foreground">{selectedDateLabel}</h3>
               <p className="text-xs text-muted-foreground">
-                {selectedDayEvents.length === 0 ? "No events" : `${selectedDayEvents.length} event${selectedDayEvents.length > 1 ? "s" : ""}`}
+                {selectedDayEvents.length === 0 ? "Sin eventos" : `${selectedDayEvents.length} event${selectedDayEvents.length > 1 ? "s" : ""}`}
               </p>
             </div>
             {canEdit && (
@@ -277,17 +277,17 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, c
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
-                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Special Service"
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Título</label>
+                <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Ej. Servicio especial"
                   className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Date</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Fecha</label>
                 <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Category</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Categoría</label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {CREATABLE_CATEGORIES.map((cat) => {
                     const meta = categoryMeta[cat];
@@ -303,10 +303,10 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, c
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">
-                  Description <span className="opacity-60">(optional)</span>
+                  Description <span className="opacity-60">(opcional)</span>
                 </label>
                 <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={2}
-                  placeholder="Add details..."
+                  placeholder="Agregar detalles..."
                   className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none" />
               </div>
             </div>
@@ -317,7 +317,7 @@ export function CalendarClient({ initialEvents, role, canEdit, userScheduleId, c
               </button>
               <button onClick={handleSave} disabled={!newTitle.trim() || !newDate || saving}
                 className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-                {saving ? "Saving..." : "Add event"}
+                {saving ? "Guardando..." : "Agregar evento"}
               </button>
             </div>
           </div>

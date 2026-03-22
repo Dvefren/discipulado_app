@@ -188,3 +188,9 @@ model CalendarEvent {
   schedule    Schedule? @relation(fields: [scheduleId], references: [id])
   category    EventCategory @default(OTHER)
 }
+// ─── APP SETTINGS ───────────────────────────────────────
+model AppSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+}

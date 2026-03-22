@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, Loader2 } from "lucide-react";
 import { ClassForm } from "@/components/class-form";
 import { DeleteConfirm } from "@/components/delete-confirm";
 import {
@@ -10,6 +10,7 @@ import {
   updateClass,
   deleteClass,
   deleteAllClasses,
+  duplicateClassesForAllSchedules,
 } from "@/app/actions/classes";
 
 interface ClassData {
@@ -65,6 +66,7 @@ export default function ClassesPage() {
   const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState("");
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editData, setEditData] = useState<any>(null);
@@ -119,11 +121,22 @@ export default function ClassesPage() {
     fetchData(selectedSchedule || undefined);
   }
 
+  async function handleGenerate21() {
+    if (!confirm("Esto creará 21 clases (fechas por definir) para TODOS los horarios. ¿Continuar?")) return;
+    setGenerating(true);
+    try {
+      await duplicateClassesForAllSchedules();
+      fetchData(selectedSchedule || undefined);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   if (loading) {
     return (
       <div>
         <h1 className="text-lg font-medium text-foreground mb-5">Classes</h1>
-        <div className="bg-muted rounded-lg p-10 text-center"><p className="text-sm text-muted-foreground">Loading...</p></div>
+        <div className="bg-muted rounded-lg p-10 text-center"><p className="text-sm text-muted-foreground">Cargando...</p></div>
       </div>
     );
   }
@@ -134,12 +147,17 @@ export default function ClassesPage() {
         <h1 className="text-lg font-medium text-foreground">Classes</h1>
         <div className="flex items-center gap-2">
           {classes.length > 0 && (
-            <button onClick={() => setDeleteAllOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-              <Trash2 size={13} /> Delete all
+            <button onClick={() => setDeleteAllOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              <Trash2 size={13} /> Eliminar todo
             </button>
           )}
+          <button onClick={handleGenerate21} disabled={generating}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
+            {generating ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}
+            {generating ? "Generando..." : "Generate 21 classes"}
+          </button>
           <button onClick={handleAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors">
-            <Plus size={14} /> Add class
+            <Plus size={14} /> Agregar clase
           </button>
         </div>
       </div>
@@ -149,13 +167,13 @@ export default function ClassesPage() {
           {schedules.map((s, i) => (
             <button key={s.id} onClick={() => setSelectedSchedule(s.id)}
               className={`px-3.5 py-1.5 rounded-lg text-xs border transition-colors ${selectedSchedule === s.id || (!selectedSchedule && i === 0) ? "bg-accent font-medium text-foreground border-border" : "text-muted-foreground border-border hover:border-border hover:text-foreground"}`}>
-              {s.label.replace("Wednesday", "Wed").replace("Sunday", "Sun")}
+              {s.label.replace("Wednesday", "Mié").replace("Sunday", "Dom")}
             </button>
           ))}
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground mb-3">{classes.length} classes</p>
+      <p className="text-xs text-muted-foreground mb-3">{classes.length} clases</p>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {/* Desktop */}
@@ -173,7 +191,7 @@ export default function ClassesPage() {
             </thead>
             <tbody>
               {classes.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">No classes yet. Add your first class.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">Sin clases aún. Agrega tu primera clase o genera las 21 clases estándar.</td></tr>
               ) : (
                 classes.map((cls) => {
                   const sagaLabel = getSagaLabel(cls.number);
@@ -186,7 +204,7 @@ export default function ClassesPage() {
                           </td>
                         </tr>
                       )}
-                                            <tr className={`hover:bg-accent transition-colors group ${SAGA_ENDS.has(cls.number) ? "border-b-2 border-border" : "border-b border-border/30"}`}>
+                      <tr className={`hover:bg-accent transition-colors group ${SAGA_ENDS.has(cls.number) ? "border-b-2 border-border" : "border-b border-border/30"}`}>
                         <td className="px-4 py-2.5 text-sm text-muted-foreground">{cls.number}</td>
                         <td className="px-4 py-2.5 text-sm text-foreground">
                           {cls.name}
@@ -197,7 +215,7 @@ export default function ClassesPage() {
                         <td className="px-4 py-2.5 text-sm text-muted-foreground">{cls.topic || "—"}</td>
                         <td className="px-4 py-2.5 text-sm">
                           {cls.isTbd ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">TBD</span>
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs font-medium">TBD</span>
                           ) : (
                             <span className="text-muted-foreground">{cls.dateFormatted}</span>
                           )}
@@ -212,13 +230,13 @@ export default function ClassesPage() {
                               <span className="text-[10px] text-muted-foreground">({cls.presentCount}/{cls.totalMarked})</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">No records</span>
+                            <span className="text-xs text-muted-foreground">Sin registros</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                            <button onClick={() => handleEdit(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Edit"><Pencil size={13} /></button>
-                            <button onClick={() => handleDeleteClick(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete"><Trash2 size={13} /></button>
+                            <button onClick={() => handleEdit(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Editar"><Pencil size={13} /></button>
+                            <button onClick={() => handleDeleteClick(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Eliminar"><Trash2 size={13} /></button>
                           </div>
                         </td>
                       </tr>
@@ -231,9 +249,9 @@ export default function ClassesPage() {
         </div>
 
         {/* Mobile */}
-        <div className="md:hidden divide-y divide-gray-100">
+        <div className="md:hidden divide-y divide-border/30">
           {classes.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted-foreground">No classes yet. Add your first class.</div>
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">Sin clases aún. Agrega tu primera clase o genera las 21 clases estándar.</div>
           ) : (
             classes.map((cls) => {
               const sagaLabel = getSagaLabel(cls.number);
@@ -252,13 +270,13 @@ export default function ClassesPage() {
                       </p>
                       <div className="flex items-center gap-1">
                         <button onClick={() => handleEdit(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteClick(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                        <button onClick={() => handleDeleteClick(cls)} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
                       </div>
                     </div>
                     {cls.topic && <p className="text-xs text-muted-foreground mb-1">{cls.topic}</p>}
                     <div className="flex items-center gap-3">
                       {cls.isTbd ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium">TBD</span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-medium">TBD</span>
                       ) : (
                         <span className="text-xs text-muted-foreground">{cls.dateFormatted}</span>
                       )}
@@ -281,9 +299,9 @@ export default function ClassesPage() {
 
       <ClassForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleFormSubmit} initialData={editData} />
       <DeleteConfirm open={deleteOpen} onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }} onConfirm={handleDeleteConfirm}
-        title="Delete class" message={`Are you sure you want to delete "${deleteTarget?.topic || deleteTarget?.name}"? All attendance records for this class will also be deleted.`} />
+        title="Eliminar clase" message={`¿Estás seguro de eliminar "${deleteTarget?.topic || deleteTarget?.name}"? Todos los registros de asistencia de esta clase también serán eliminados.`} />
       <DeleteConfirm open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} onConfirm={handleDeleteAll}
-        title="Delete all classes" message={`Are you sure you want to delete all ${classes.length} classes${selectedSchedule ? " in this schedule" : " across all schedules"}? All attendance records will also be deleted.`} />
+        title="Eliminar todas las clases" message={`¿Estás seguro de eliminar todas las ${classes.length} classes${selectedSchedule ? " en este horario" : " en todos los horarios"}? Todos los registros de asistencia también serán eliminados.`} />
     </div>
   );
 }

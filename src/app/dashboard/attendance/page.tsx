@@ -28,16 +28,16 @@ interface AttendanceRecord {
 }
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
-  PRESENT: { label: "Present", color: "text-green-700", bg: "bg-green-100" },
-  ABSENT: { label: "Absent", color: "text-red-700", bg: "bg-red-100" },
-  PREVIEWED: { label: "Previewed", color: "text-blue-700", bg: "bg-blue-100" },
-  RECOVERED: { label: "Recovered", color: "text-amber-700", bg: "bg-amber-100" },
+  PRESENT: { label: "Presente", color: "text-green-700", bg: "bg-green-100" },
+  ABSENT: { label: "Ausente", color: "text-red-700", bg: "bg-red-100" },
+  PREVIEWED: { label: "Adelantó", color: "text-blue-700", bg: "bg-blue-100" },
+  RECOVERED: { label: "Recuperó", color: "text-amber-700", bg: "bg-amber-100" },
 };
 
 const ABSENT_REASONS: { value: AbsentReason; label: string }[] = [
-  { value: "SICK", label: "Sick" }, { value: "WORK", label: "Work" },
-  { value: "PERSONAL", label: "Personal" }, { value: "TRAVEL", label: "Travel" },
-  { value: "OTHER", label: "Other" },
+  { value: "SICK", label: "Enfermedad" }, { value: "WORK", label: "Trabajo" },
+  { value: "PERSONAL", label: "Personal" }, { value: "TRAVEL", label: "Viaje" },
+  { value: "OTHER", label: "Otro" },
 ];
 
 export default function AttendancePage() {
@@ -178,36 +178,36 @@ export default function AttendancePage() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-lg font-medium text-foreground mb-5">Attendance</h1>
-        <div className="bg-muted rounded-lg p-10 text-center"><p className="text-sm text-muted-foreground">Loading...</p></div>
+        <h1 className="text-lg font-medium text-foreground mb-5">Asistencia</h1>
+        <div className="bg-muted rounded-lg p-10 text-center"><p className="text-sm text-muted-foreground">Cargando...</p></div>
       </div>
     );
   }
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-foreground mb-5">Attendance</h1>
+      <h1 className="text-lg font-medium text-foreground mb-5">Asistencia</h1>
 
       {/* Selectors */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Schedule</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Horario</label>
           <select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
-            <option value="">Select a schedule</option>
+            <option value="">Seleccionar horario</option>
             {schedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Class</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Clase</label>
           <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card disabled:opacity-50">
-            <option value="">Select a class</option>
+            <option value="">Seleccionar clase</option>
             {classes.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Table / Facilitator</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mesa / Facilitador</label>
           <select value={selectedTable} onChange={(e) => setSelectedTable(e.target.value)} disabled={!selectedSchedule} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card disabled:opacity-50">
-            <option value="">All tables</option>
+            <option value="">Todas las mesas</option>
             {facilitators.map((f) => (<option key={f.tableId} value={f.tableId}>{f.tableName} — {f.facilitatorName}</option>))}
           </select>
         </div>
@@ -218,7 +218,7 @@ export default function AttendancePage() {
         <div className="bg-muted rounded-lg p-10 text-center">
           <BookOpen size={24} className="mx-auto mb-3 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {!selectedSchedule ? "Select a schedule and class to start marking attendance." : "Select a class to see the student list."}
+            {!selectedSchedule ? "Selecciona un horario y una clase para comenzar a marcar asistencia." : "Selecciona una clase para ver la lista de alumnos."}
           </p>
         </div>
       )}
@@ -229,25 +229,25 @@ export default function AttendancePage() {
           {/* Progress Bar & Stats */}
           <div className="bg-card border border-border rounded-xl p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">{attendancePercent}% attendance</span>
-              <span className="text-xs text-muted-foreground">{presentCount}/{totalCount} present</span>
+              <span className="text-sm font-medium text-foreground">{attendancePercent}% asistencia</span>
+              <span className="text-xs text-muted-foreground">{presentCount}/{totalCount} presentes</span>
             </div>
             <div className="h-2.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
               <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${attendancePercent}%` }} />
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 flex-wrap">
-                {presentCount > 0 && <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-md">{presentCount} present</span>}
-                {absentCount > 0 && <span className="text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-md">{absentCount} absent</span>}
-                {previewedCount > 0 && <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded-md">{previewedCount} previewed</span>}
-                {recoveredCount > 0 && <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded-md">{recoveredCount} recovered</span>}
-                {unmarkedCount > 0 && <span className="text-xs text-muted-foreground">{unmarkedCount} unmarked</span>}
+                {presentCount > 0 && <span className="text-xs font-medium text-green-700 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md">{presentCount} presentes</span>}
+                {absentCount > 0 && <span className="text-xs font-medium text-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md">{absentCount} ausentes</span>}
+                {previewedCount > 0 && <span className="text-xs font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md">{previewedCount} adelantaron</span>}
+                {recoveredCount > 0 && <span className="text-xs font-medium text-amber-700 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md">{recoveredCount} recuperaron</span>}
+                {unmarkedCount > 0 && <span className="text-xs text-muted-foreground">{unmarkedCount} sin marcar</span>}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={markAllPresent} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">All present</button>
-                <button onClick={clearAll} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">Clear all</button>
+                <button onClick={markAllPresent} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">Todos presentes</button>
+                <button onClick={clearAll} className="px-2.5 py-1 text-xs text-muted-foreground border border-border rounded-lg hover:bg-accent transition-colors">Limpiar</button>
                 <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
-                  {saving ? "Saving..." : saved ? (<><Check size={13} /> Saved</>) : (<><Save size={13} /> Save</>)}
+                  {saving ? "Guardando..." : saved ? (<><Check size={13} /> Guardado</>) : (<><Save size={13} /> Guardar</>)}
                 </button>
               </div>
             </div>
@@ -266,16 +266,13 @@ export default function AttendancePage() {
               return (
                 <div key={student.id} className="bg-card border border-border rounded-xl overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3">
-                    {/* Status Button */}
-                    <button onClick={() => cycleStatus(student.id)} className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${hasStatus ? `${config!.bg} ${config!.color}` : "bg-accent text-muted-foreground"}`} title="Click to set status">
-                      {hasStatus ? config!.label : "Not marked"}
+                    <button onClick={() => cycleStatus(student.id)} className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${hasStatus ? `${config!.bg} ${config!.color}` : "bg-accent text-muted-foreground"}`} title="Clic para cambiar estado">
+                      {hasStatus ? config!.label : "Sin marcar"}
                     </button>
-
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{student.firstName} {student.lastName}</p>
                       <p className="text-xs text-muted-foreground">{student.tableName} — {student.facilitatorName}</p>
                     </div>
-
                     {needsDetails && (
                       <button onClick={() => setExpandedStudent(isExpanded ? null : student.id)} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-all ${isExpanded ? "rotate-180" : ""}`}>
                         <ChevronDown size={14} />
@@ -297,7 +294,7 @@ export default function AttendancePage() {
                         {rec.status === "ABSENT" && (
                           <div className="space-y-2">
                             <div>
-                              <label className="block text-xs text-muted-foreground mb-1">Reason</label>
+                              <label className="block text-xs text-muted-foreground mb-1">Razón</label>
                               <div className="flex gap-1.5 flex-wrap">
                                 {ABSENT_REASONS.map((r) => (
                                   <button key={r.value} onClick={() => updateRecord(student.id, { absentReason: r.value })} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${rec.absentReason === r.value ? "bg-red-100 text-red-700 font-medium" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
@@ -307,8 +304,8 @@ export default function AttendancePage() {
                               </div>
                             </div>
                             <div>
-                              <label className="block text-xs text-muted-foreground mb-1">Note (optional)</label>
-                              <input type="text" value={rec.absentNote} onChange={(e) => updateRecord(student.id, { absentNote: e.target.value })} placeholder="e.g. Had a doctor appointment" className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
+                              <label className="block text-xs text-muted-foreground mb-1">Nota (opcional)</label>
+                              <input type="text" value={rec.absentNote} onChange={(e) => updateRecord(student.id, { absentNote: e.target.value })} placeholder="Ej. Tenía cita con el doctor" className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
                             </div>
                           </div>
                         )}
@@ -316,10 +313,10 @@ export default function AttendancePage() {
                         {(rec.status === "PREVIEWED" || rec.status === "RECOVERED") && (
                           <div>
                             <label className="block text-xs text-muted-foreground mb-1">
-                              {rec.status === "PREVIEWED" ? "Which schedule did they preview in?" : "Which schedule did they recover in?"}
+                              {rec.status === "PREVIEWED" ? "¿En qué horario adelantó?" : "¿En qué horario recuperó?"}
                             </label>
                             <select value={rec.altScheduleId} onChange={(e) => updateRecord(student.id, { altScheduleId: e.target.value })} className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
-                              <option value="">Select schedule</option>
+                              <option value="">Seleccionar horario</option>
                               {otherSchedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
                             </select>
                           </div>
@@ -337,7 +334,7 @@ export default function AttendancePage() {
       {selectedClass && students.length === 0 && (
         <div className="bg-muted rounded-lg p-10 text-center">
           <Users size={24} className="mx-auto mb-3 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No students in this {selectedTable ? "table" : "schedule"} yet.</p>
+          <p className="text-sm text-muted-foreground">No hay alumnos en {selectedTable ? "esta mesa" : "este horario"} aún.</p>
         </div>
       )}
     </div>
