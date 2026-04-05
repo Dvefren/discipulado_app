@@ -265,7 +265,7 @@ function parseRegistrationForm(rawText: string): ParsedForm {
     }
   }
 
-  // ── 7. Church Questions — match known question patterns
+  // ── 7. Preguntas de la Iglesia — match known question patterns
   const churchQuestions: [RegExp, string][] = [
     [/qui[eé]n\s+te\s+invit[oó]/i, "¿Quién te invitó al curso?"],
     [/primera\s+vez\s+en\s+la\s+iglesia/i, "¿Es tu primera vez en la iglesia?"],

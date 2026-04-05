@@ -39,7 +39,7 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
       setStartDate(initialData.startDate || "");
       setEndDate(initialData.endDate || "");
     } else {
-      setName(`Course ${semester} - ${year}`);
+      setName(`Curso ${semester} - ${year}`);
       setYear(currentYear);
       setSemester(1);
       setStartDate("");
@@ -48,21 +48,20 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
     setError("");
   }, [initialData, open]);
 
-  // Auto-generate name when year or semester changes
   useEffect(() => {
     if (!isEditing) {
-      setName(`Course ${semester} - ${year}`);
+      setName(`Curso ${semester} - ${year}`);
     }
   }, [year, semester, isEditing]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !startDate || !endDate) {
-      setError("All fields are required.");
+      setError("Todos los campos son requeridos.");
       return;
     }
     if (new Date(endDate) <= new Date(startDate)) {
-      setError("End date must be after start date.");
+      setError("La fecha de fin debe ser posterior a la de inicio.");
       return;
     }
 
@@ -80,7 +79,7 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
       });
       onClose();
     } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      setError(err.message || "Algo salió mal.");
     } finally {
       setLoading(false);
     }
@@ -94,55 +93,55 @@ export function CourseForm({ open, onClose, onSubmit, initialData }: CourseFormP
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
-            <h2 className="text-sm font-medium text-foreground">{isEditing ? "Edit course" : "New course"}</h2>
+            <h2 className="text-sm font-medium text-foreground">{isEditing ? "Editar curso" : "Nuevo curso"}</h2>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Course name</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Course 1 - 2026" required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nombre del curso</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Curso 1 - 2026" required className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-muted-foreground" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Year</label>
-                <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min={2020} max={2040} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Año</label>
+                <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min={2020} max={2040} required className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Semester</label>
-                <select value={semester} onChange={(e) => setSemester(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
-                  <option value={1}>Semester 1</option>
-                  <option value={2}>Semester 2</option>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Semestre</label>
+                <select value={semester} onChange={(e) => setSemester(parseInt(e.target.value))} className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent">
+                  <option value={1}>Semestre 1</option>
+                  <option value={2}>Semestre 2</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Start date</label>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Fecha de inicio</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">End date</label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Fecha de fin</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
               </div>
             </div>
 
             {!isEditing && (
-              <div className="bg-blue-50 rounded-lg px-3 py-2">
-                <p className="text-xs text-blue-700">The 4 default schedules (Wed 7pm, Sun 9am, 11am, 1pm) will be created automatically.</p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
+                <p className="text-xs text-blue-700 dark:text-blue-400">Los 4 horarios predeterminados (Mié 7pm, Dom 9am, 11am, 1pm) se crearán automáticamente.</p>
               </div>
             )}
 
             {error && (
-              <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+              <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</div>
             )}
 
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">Cancel</button>
+              <button type="button" onClick={onClose} className="flex-1 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">Cancelar</button>
               <button type="submit" disabled={loading} className="flex-1 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50">
-                {loading ? "Saving..." : isEditing ? "Save changes" : "Create course"}
+                {loading ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear curso"}
               </button>
             </div>
           </form>

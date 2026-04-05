@@ -54,10 +54,10 @@ const roleColors: Record<Role, { avatar: string; avatarText: string; badge: stri
 };
 
 const roleLabel: Record<Role, string> = {
-  ADMIN:           "Admin",
-  SCHEDULE_LEADER: "Schedule Leader",
-  SECRETARY:       "Secretary",
-  FACILITATOR:     "Facilitator",
+  ADMIN:           "Administrador",
+  SCHEDULE_LEADER: "Líder de horario",
+  SECRETARY:       "Secretario(a)",
+  FACILITATOR:     "Facilitador(a)",
 };
 
 const roleOrder: Role[] = ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"];

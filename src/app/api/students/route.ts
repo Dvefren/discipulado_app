@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const { firstName, lastName, phone, address, birthdate, tableId, profileNotes } = await req.json();
 
   if (!firstName || !lastName || !tableId) {
-    return NextResponse.json({ error: "First name, last name, and table are required" }, { status: 400 });
+    return NextResponse.json({ error: "Nombre, apellido y facilitador son requeridos" }, { status: 400 });
   }
 
   const student = await prisma.student.create({
@@ -38,13 +38,39 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { id, ...updates } = body;
+  const { id, action, ...updates } = body;
 
   if (!id) {
-    return NextResponse.json({ error: "Student ID required" }, { status: 400 });
+    return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
   }
 
-  // Build update data — only include fields that were sent
+  // ─── Mark as Baja (quit) ───────────────────────────────
+  if (action === "quit") {
+    const student = await prisma.student.update({
+      where: { id },
+      data: {
+        status: "QUIT",
+        quitDate: updates.quitDate ? new Date(updates.quitDate + "T12:00:00Z") : new Date(),
+        quitReason: updates.quitReason || null,
+      },
+    });
+    return NextResponse.json(student);
+  }
+
+  // ─── Reactivate student ────────────────────────────────
+  if (action === "reactivate") {
+    const student = await prisma.student.update({
+      where: { id },
+      data: {
+        status: "ACTIVE",
+        quitDate: null,
+        quitReason: null,
+      },
+    });
+    return NextResponse.json(student);
+  }
+
+  // ─── Normal update ─────────────────────────────────────
   const data: Record<string, any> = {};
 
   if (updates.firstName !== undefined) data.firstName = updates.firstName;
@@ -78,10 +104,9 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
 
   if (!id) {
-    return NextResponse.json({ error: "Student ID required" }, { status: 400 });
+    return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
   }
 
-  // Delete attendance records first (foreign key constraint)
   await prisma.attendance.deleteMany({ where: { studentId: id } });
   await prisma.student.delete({ where: { id } });
 

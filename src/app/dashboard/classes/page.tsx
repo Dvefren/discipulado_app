@@ -182,10 +182,10 @@ export default function ClassesPage() {
             <thead>
               <tr className="border-b border-border/50">
                 <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground w-10">#</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Class</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Topic</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground w-32">Date</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground w-36">Attendance</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Clase</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Tema</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground w-32">Fecha</th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground w-36">Asistencia</th>
                 <th className="w-20"></th>
               </tr>
             </thead>

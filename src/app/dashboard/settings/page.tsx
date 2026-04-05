@@ -114,7 +114,7 @@ export default function SettingsPage() {
     setTimeout(() => setSavedFund(false), 2000);
   }
 
-  // ─── Church questions ──────────────────────────────────
+  // ─── Preguntas de la Iglesia ──────────────────────────────────
   const handleAdd = async () => {
     if (!newQuestion.trim()) return;
     setSaving(true);
@@ -200,7 +200,7 @@ export default function SettingsPage() {
         <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DollarSign size={14} className="text-muted-foreground" />
-            <h2 className="text-sm font-medium text-foreground">Graduation Fund</h2>
+            <h2 className="text-sm font-medium text-foreground">Fondos para Graduacion</h2>
           </div>
           <button onClick={saveFund} disabled={savingFund}
             className="px-3 py-1.5 text-xs font-medium text-background bg-foreground rounded-lg hover:bg-foreground/90 transition-colors disabled:opacity-50">
@@ -210,13 +210,13 @@ export default function SettingsPage() {
         <div className="px-5 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Goal amount ($)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Meta ($)</label>
               <input type="number" value={fundGoal} onChange={(e) => { setFundGoal(Number(e.target.value)); setSavedFund(false); }}
                 min={0} step={100} placeholder="5000"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground outline-none focus:ring-1 focus:ring-ring" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Collected ($)</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Recolectado ($)</label>
               <input type="number" value={fundCollected} onChange={(e) => { setFundCollected(Number(e.target.value)); setSavedFund(false); }}
                 min={0} step={50} placeholder="0"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground outline-none focus:ring-1 focus:ring-ring" />
@@ -245,7 +245,7 @@ export default function SettingsPage() {
         <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart3 size={14} className="text-muted-foreground" />
-            <h2 className="text-sm font-medium text-foreground">Dashboard Charts</h2>
+            <h2 className="text-sm font-medium text-foreground">Graficas de Dashboard</h2>
           </div>
           <button onClick={saveChartVisibility} disabled={savingCharts}
             className="px-3 py-1.5 text-xs font-medium text-background bg-foreground rounded-lg hover:bg-foreground/90 transition-colors disabled:opacity-50">
@@ -253,7 +253,7 @@ export default function SettingsPage() {
           </button>
         </div>
         <div className="px-5 py-4">
-          <p className="text-xs text-muted-foreground mb-3">Toggle which charts are visible on the dashboard.</p>
+          <p className="text-xs text-muted-foreground mb-3">Selecciona las graficas que seran visibles en el Dashboard</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {CHART_OPTIONS.map((chart) => {
               const visible = chartVisibility[chart.key] !== false;
@@ -273,10 +273,10 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ─── Church Questions ─────────────────────────────── */}
+      {/* ─── Preguntas de la Iglesia ─────────────────────────────── */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border/50 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-foreground">Church questions</h2>
+          <h2 className="text-sm font-medium text-foreground">Preguntas de la Iglesia</h2>
           <button onClick={() => setShowForm(!showForm)}
             className="px-3 py-1.5 text-xs font-medium text-background bg-foreground rounded-lg hover:bg-foreground/90 transition-colors">
             {showForm ? "Cancel" : "+ Agregar pregunta"}

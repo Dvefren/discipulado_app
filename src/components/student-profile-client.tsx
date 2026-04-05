@@ -266,11 +266,11 @@ export default function StudentProfileClient({
         </div>
       </div>
 
-      {/* ═══ CHURCH QUESTIONS ═══ */}
+      {/* ═══ Preguntas de la Iglesia ═══ */}
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-foreground">
-            Church questions
+            Preguntas de la Iglesia
           </h2>
           <button
             onClick={saveNotes}

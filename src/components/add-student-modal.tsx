@@ -73,7 +73,7 @@ export default function AddStudentModal({
   const [saving, setSaving] = useState(false);
   const [ocrFilled, setOcrFilled] = useState(false);
 
-  // Church questions
+  // Preguntas de la Iglesia
   const [questions, setQuestions] = useState<ProfileQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -303,13 +303,13 @@ export default function AddStudentModal({
             />
           </div>
 
-          {/* ═══ CHURCH QUESTIONS ═══ */}
+          {/* ═══ Preguntas de la Iglesia ═══ */}
           {questions.length > 0 && (
             <>
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-gray-100" />
                 <span className="text-[11px] text-gray-400 uppercase tracking-wider">
-                  Church questions
+                  Preguntas de la Iglesia
                 </span>
                 <div className="flex-1 h-px bg-gray-100" />
               </div>

@@ -38,6 +38,10 @@ enum EventCategory {
   DYNAMICS
   OTHER
 }
+enum StudentStatus {
+  ACTIVE
+  QUIT
+}
 // ─── AUTH & USERS ───────────────────────────────────────
 model User {
   id            String    @id @default(cuid())
@@ -52,6 +56,7 @@ model User {
   scheduleLeaders ScheduleLeader[]
   secretaries     Secretary[]
   calendarEvents  CalendarEvent[]
+  studentNotes  StudentNote[]
 }
 // ─── CORE MODELS ────────────────────────────────────────
 model Course {
@@ -145,6 +150,20 @@ model Student {
   updatedAt     DateTime   @updatedAt
   table         FacilitatorTable @relation(fields: [tableId], references: [id])
   attendance    Attendance[]
+  status        StudentStatus @default(ACTIVE)
+  quitDate      DateTime?
+  quitReason    String?
+  notes       StudentNote[]
+}
+model StudentNote {
+  id        String   @id @default(cuid())
+  content   String
+  studentId String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
 }
 // ─── ATTENDANCE ─────────────────────────────────────────
 model Attendance {

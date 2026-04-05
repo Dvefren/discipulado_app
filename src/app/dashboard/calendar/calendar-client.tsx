@@ -35,7 +35,7 @@ const categoryMeta: Record<EventCategory, { label: string; color: string; dot: s
 // Categories that can be manually created (not BIRTHDAY or CLASS — those are auto)
 const CREATABLE_CATEGORIES: EventCategory[] = ["COURSE_DATE", "SNACK", "DYNAMICS", "OTHER"];
 
-const DAYS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS   = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 function isVirtualEvent(id: string) {
