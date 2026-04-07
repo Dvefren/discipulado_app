@@ -1,0 +1,23 @@
+[
+  { "slug": "clase-1", "title": "Introduccion", "description": "Clase de introduccion", "slideCount": 5, "imageExt": "jpg" },
+  { "slug": "clase-2",  "title": "Clase 2",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-3",  "title": "Clase 3",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-4",  "title": "Clase 4",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-5",  "title": "Clase 5",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-6",  "title": "Clase 6",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-7",  "title": "Clase 7",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-8",  "title": "Clase 8",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-9",  "title": "Clase 9",  "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-10", "title": "Clase 10", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-11", "title": "Clase 11", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-12", "title": "Clase 12", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-13", "title": "Clase 13", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-14", "title": "Clase 14", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-15", "title": "Clase 15", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-16", "title": "Clase 16", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-17", "title": "Clase 17", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-18", "title": "Clase 18", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-19", "title": "Clase 19", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-20", "title": "Clase 20", "description": "", "slideCount": 0, "imageExt": "jpg" },
+  { "slug": "clase-21", "title": "Clase 21", "description": "", "slideCount": 0, "imageExt": "jpg" }
+]
