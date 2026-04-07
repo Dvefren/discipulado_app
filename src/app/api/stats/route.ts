@@ -41,6 +41,39 @@ export async function GET() {
   const totalStudents = schedules.reduce((sum, s) => sum + getFilteredTables(s.tables).reduce((ts, t) => ts + t._count.students, 0), 0);
   const totalFacilitators = schedules.reduce((sum, s) => sum + getFilteredTables(s.tables).length, 0);
 
+  // ─── BAJAS PER SCHEDULE (no dependency on classes) ─────
+  const scheduleIds = schedules.map((s) => s.id);
+  const bajasRaw = await prisma.student.groupBy({
+    by: ["tableId"],
+    where: {
+      status: "QUIT",
+      table: { scheduleId: { in: scheduleIds } },
+    },
+    _count: { _all: true },
+  });
+
+  // tableId → scheduleId lookup
+  const tableToSchedule = new Map<string, string>();
+  for (const s of schedules) {
+    for (const t of s.tables) {
+      tableToSchedule.set(t.id, s.id);
+    }
+  }
+
+  // scheduleId → bajas count
+  const bajasCountBySchedule = new Map<string, number>();
+  for (const row of bajasRaw) {
+    const schedId = tableToSchedule.get(row.tableId);
+    if (schedId) {
+      bajasCountBySchedule.set(schedId, (bajasCountBySchedule.get(schedId) || 0) + row._count._all);
+    }
+  }
+
+  const bajasPerSchedule = schedules.map((s) => ({
+    schedule: s.label.replace("Wednesday", "Mié").replace("Sunday", "Dom"),
+    bajas: bajasCountBySchedule.get(s.id) || 0,
+  }));
+
   const allClassIds = schedules.flatMap((s) => s.classes.map((c) => c.id));
   if (allClassIds.length === 0) {
     return NextResponse.json({
@@ -55,7 +88,9 @@ export async function GET() {
       })),
       attendanceBySchedule: [], reasonsBreakdown: [],
       topFacilitators: [], bottomFacilitators: [],
-      heatmapData: [], recentClasses: [], role: scope.role,
+      heatmapData: [], recentClasses: [],
+      bajasPerSchedule,
+      role: scope.role,
     });
   }
 
@@ -69,16 +104,10 @@ export async function GET() {
   }
 
   // ─── BULK QUERIES (all in parallel) ────────────────────
-  // Instead of 200+ sequential queries, we do ~6 bulk queries
-
   const [
-    // 1. All attendance grouped by classId + status
     attendanceByClass,
-    // 2. Absent reasons breakdown
     absentReasons,
-    // 3. All students with their tableId (for facilitator stats)
     allStudentsWithTable,
-    // 4. All attendance records with studentId (for facilitator stats)
     attendanceByStudent,
   ] = await Promise.all([
     prisma.attendance.groupBy({
@@ -104,7 +133,6 @@ export async function GET() {
 
   // ─── BUILD LOOKUP MAPS ─────────────────────────────────
 
-  // classId → { total, present }
   const classStatsMap = new Map<string, { total: number; present: number }>();
   for (const row of attendanceByClass) {
     const entry = classStatsMap.get(row.classId) || { total: 0, present: 0 };
@@ -113,13 +141,11 @@ export async function GET() {
     classStatsMap.set(row.classId, entry);
   }
 
-  // studentId → tableId
   const studentTableMap = new Map<string, string>();
   for (const s of allStudentsWithTable) {
     studentTableMap.set(s.id, s.tableId);
   }
 
-  // tableId → { total, present }
   const tableStatsMap = new Map<string, { total: number; present: number }>();
   for (const row of attendanceByStudent) {
     const tableId = studentTableMap.get(row.studentId);
@@ -130,7 +156,7 @@ export async function GET() {
     tableStatsMap.set(tableId, entry);
   }
 
-  // ─── COMPUTE STATS FROM MAPS (no more DB calls) ───────
+  // ─── COMPUTE STATS FROM MAPS ──────────────────────────
 
   // Overall attendance
   let totalAttendanceRecords = 0;
@@ -285,6 +311,7 @@ export async function GET() {
     bottomFacilitators,
     heatmapData,
     recentClasses: [...recentClassesMap.values()],
+    bajasPerSchedule,
     role: scope.role,
   });
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, DollarSign, TrendingDown, TrendingUp, Maximize2, X } from "lucide-react";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis,
+  BarChart, Bar, XAxis, YAxis,
   ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell,
   LabelList,
 } from "recharts";
@@ -24,6 +24,7 @@ interface Stats {
   bottomFacilitators: { name: string; schedule: string; students: number; percent: number; present: number; total: number }[];
   heatmapData: { schedule: string; classNum: number; className: string; percent: number; present: number; total: number }[];
   recentClasses: { name: string; schedules: { schedule: string; date: string; present: number; total: number; percent: number }[] }[];
+  bajasPerSchedule: { schedule: string; bajas: number }[];
   role: string;
 }
 
@@ -80,14 +81,12 @@ export default function DashboardHome() {
 
       // Chart visibility defaults
       const defaultVis: Record<string, boolean> = {
-        "attendance-trend": true,
         "students-schedule": true,
-        "attendance-schedule": true,
         "absent-reasons": true,
         "heatmap": true,
         "top-facilitators": true,
         "bottom-facilitators": true,
-        "recent-classes": true,
+        "bajas-schedule": true,
       };
       setChartVisibility({ ...defaultVis, ...(settings.chart_visibility || {}) });
       setFund(settings.graduation_fund || { goal: 0, collected: 0 });
@@ -108,11 +107,9 @@ export default function DashboardHome() {
   if (!stats.topFacilitators) stats.topFacilitators = [];
   if (!stats.bottomFacilitators) stats.bottomFacilitators = [];
   if (!stats.heatmapData) stats.heatmapData = [];
-  if (!stats.recentClasses) stats.recentClasses = [];
-  if (!stats.attendanceBySchedule) stats.attendanceBySchedule = [];
   if (!stats.reasonsBreakdown) stats.reasonsBreakdown = [];
-  if (!stats.attendanceTrend) stats.attendanceTrend = [];
   if (!stats.studentsPerSchedule) stats.studentsPerSchedule = [];
+  if (!stats.bajasPerSchedule) stats.bajasPerSchedule = [];
 
   const nonAttendance = stats.overallAttendance !== null ? 100 - stats.overallAttendance : null;
   const isVisible = (key: string) => chartVisibility[key] !== false;
@@ -122,22 +119,6 @@ export default function DashboardHome() {
   const fundLabel = fund.goal > 0 ? `$${fund.collected.toLocaleString()}/$${fund.goal.toLocaleString()}` : "--";
 
   // ── Chart renderers ────────────────────────────────────
-
-  function renderAttendanceTrend(height: number) {
-    if (stats!.attendanceTrend.length === 0) return <EmptyChart />;
-    return (
-      <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={stats!.attendanceTrend}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} />
-          <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-          <Line type="monotone" dataKey="percent" stroke="#f87171" strokeWidth={2} dot={{ fill: "#f87171", r: 3 }}>
-            <LabelList dataKey="percent" position="top" formatter={(v: any) => `${v}%`} style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }} />
-          </Line>
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  }
 
   function renderStudentsPerSchedule(height: number) {
     if (!stats!.studentsPerSchedule.some((s) => s.students > 0)) return <EmptyChart />;
@@ -155,16 +136,16 @@ export default function DashboardHome() {
     );
   }
 
-  function renderAttendanceBySchedule(height: number) {
-    if (!stats!.attendanceBySchedule.some((s) => s.total > 0)) return <EmptyChart />;
+  function renderBajasPerSchedule(height: number) {
+    if (!stats!.bajasPerSchedule.some((s) => s.bajas > 0)) return <EmptyChart message="Sin bajas registradas." />;
     return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={stats!.attendanceBySchedule} barSize={40} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-          <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} />
-          <YAxis type="category" dataKey="schedule" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} width={80} />
-          <Bar dataKey="percent" fill="#38bdf8" radius={[0, 4, 4, 0]}>
-            <LabelList dataKey="percent" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} />
+        <BarChart data={stats!.bajasPerSchedule} barSize={40}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+          <XAxis dataKey="schedule" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} tickLine={false} axisLine={false} allowDecimals={false} />
+          <Bar dataKey="bajas" fill="#fb923c" radius={[4, 4, 0, 0]}>
+            <LabelList dataKey="bajas" position="top" style={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -265,47 +246,15 @@ export default function DashboardHome() {
     );
   }
 
-  function renderRecentClasses() {
-    if (stats!.recentClasses.length === 0) return <EmptyChart />;
-    return (
-      <div className="space-y-4">
-        {stats!.recentClasses.map((cls) => (
-          <div key={cls.name}>
-            <p className="text-xs font-medium text-foreground mb-2">{cls.name}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {cls.schedules.map((s) => (
-                <div key={s.schedule} className="bg-muted rounded-lg px-3 py-2">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-muted-foreground">{s.schedule}</span>
-                    <span className="text-[10px] text-muted-foreground">{s.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${s.percent >= 80 ? "bg-emerald-400" : s.percent >= 50 ? "bg-amber-400" : "bg-red-400"}`} style={{ width: `${s.percent}%` }} />
-                    </div>
-                    <span className="text-xs font-medium text-foreground">{s.percent}%</span>
-                    <span className="text-[9px] text-muted-foreground">({s.present}/{s.total})</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   // ── Fullscreen ─────────────────────────────────────────
   if (fullscreen) {
     const chartMap: Record<string, { title: string; render: () => React.ReactNode }> = {
-      "attendance-trend":    { title: "Tendencia de asistencia",       render: () => renderAttendanceTrend(500) },
-      "students-schedule":   { title: "Alumnos por horario",  render: () => renderStudentsPerSchedule(500) },
-      "attendance-schedule": { title: "Asistencia por horario",  render: () => renderAttendanceBySchedule(500) },
-      "absent-reasons":      { title: "Razones de inasistencia",         render: () => renderReasons(400) },
-      "heatmap":             { title: "Mapa de calor de asistencia",     render: renderHeatmap },
-      "top-facilitators":    { title: "Top 5 facilitadores",     render: renderTopFacilitators },
-      "bottom-facilitators": { title: "5 facilitadores con menor asistencia",  render: renderBottomFacilitators },
-      "recent-classes":      { title: "Clases recientes",         render: renderRecentClasses },
+      "students-schedule":   { title: "Alumnos por horario",              render: () => renderStudentsPerSchedule(500) },
+      "bajas-schedule":      { title: "Bajas por horario",                render: () => renderBajasPerSchedule(500) },
+      "absent-reasons":      { title: "Razones de inasistencia",          render: () => renderReasons(400) },
+      "heatmap":             { title: "Mapa de calor de asistencia",      render: renderHeatmap },
+      "top-facilitators":    { title: "Top 5 facilitadores",              render: renderTopFacilitators },
+      "bottom-facilitators": { title: "5 facilitadores con menor asistencia", render: renderBottomFacilitators },
     };
     const chart = chartMap[fullscreen];
     if (chart) {
@@ -338,42 +287,33 @@ export default function DashboardHome() {
 
       {/* Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {isVisible("attendance-trend") && (
-          <ChartCard title="Tendencia de asistencia" onExpand={() => setFullscreen("attendance-trend")}>
-            {renderAttendanceTrend(220)}
-          </ChartCard>
-        )}
         {isVisible("students-schedule") && (
           <ChartCard title="Alumnos por horario" onExpand={() => setFullscreen("students-schedule")}>
             {renderStudentsPerSchedule(220)}
+          </ChartCard>
+        )}
+        {isVisible("bajas-schedule") && (
+          <ChartCard title="Bajas por horario" onExpand={() => setFullscreen("bajas-schedule")}>
+            {renderBajasPerSchedule(220)}
           </ChartCard>
         )}
       </div>
 
       {/* Row 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {isVisible("attendance-schedule") && (
-          <ChartCard title="Asistencia por horario" onExpand={() => setFullscreen("attendance-schedule")}>
-            {renderAttendanceBySchedule(220)}
-          </ChartCard>
-        )}
         {isVisible("absent-reasons") && (
           <ChartCard title="Razones de inasistencia" onExpand={() => setFullscreen("absent-reasons")}>
             {renderReasons(200)}
           </ChartCard>
         )}
-      </div>
-
-      {/* Row 3 */}
-      {isVisible("heatmap") && (
-        <div className="mb-4">
+        {isVisible("heatmap") && (
           <ChartCard title="Mapa de calor" onExpand={() => setFullscreen("heatmap")}>
             {renderHeatmap()}
           </ChartCard>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Row 4 */}
+      {/* Row 3 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {isVisible("top-facilitators") && (
           <ChartCard title="Top 5 facilitadores" onExpand={() => setFullscreen("top-facilitators")}>
@@ -386,15 +326,6 @@ export default function DashboardHome() {
           </ChartCard>
         )}
       </div>
-
-      {/* Row 5 */}
-      {isVisible("recent-classes") && (
-        <div className="mb-4">
-          <ChartCard title="Clases recientes" onExpand={() => setFullscreen("recent-classes")}>
-            {renderRecentClasses()}
-          </ChartCard>
-        </div>
-      )}
     </div>
   );
 }
