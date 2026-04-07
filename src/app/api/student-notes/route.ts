@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(notes.map((n) => ({
     id: n.id,
     content: n.content,
-    authorName: n.author.name,
-    authorRole: n.author.role,
+    authorName: n.author?.name ?? "Usuario eliminado",
+    authorRole: n.author?.role ?? "DELETED",
     createdAt: n.createdAt.toISOString(),
   })));
 }
@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     id: note.id,
     content: note.content,
-    authorName: note.author.name,
-    authorRole: note.author.role,
-    createdAt: note.createdAt.toISOString(),
+    authorName: note.author?.name ?? "Usuario eliminado",
+    authorRole: note.author?.role ?? "DELETED",
+    createdAt: note.createdAt.toISOString(),  
   }, { status: 201 });
 }
 
