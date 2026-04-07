@@ -453,14 +453,21 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
     return matchSchedule && matchSearch;
   });
 
-  function exportCSV() {
-    const headers = ["Nombre", "Horario", "Facilitador", "Mesa", "Teléfono", "Nacimiento", "Dirección", "Asistencia %", "Estado"];
-    const rows = filtered.map((s) => {
-      const tot = s.attendance.length; const eff = s.attendance.filter((a) => isAttended(a.status)).length; const pct = tot > 0 ? Math.round((eff / tot) * 100) : 0;
-      return [`${s.firstName} ${s.lastName}`, t(s.scheduleLabel), s.facilitatorName, s.tableName, s.phone ?? "", s.birthdate ? new Date(s.birthdate).toLocaleDateString("es-MX") : "", s.address ?? "", `${pct}%`, s.status === "QUIT" ? "Baja" : "Activo"].map((v) => `"${v}"`).join(",");
-    });
-    const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "alumnos.csv"; a.click(); URL.revokeObjectURL(url);
+  async function exportXLSX() {
+    const params = filter !== "all" ? `?schedule=${encodeURIComponent(filter)}` : "";
+    const res = await fetch(`/api/students/export${params}`);
+    if (!res.ok) {
+      alert("Error al exportar.");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const date = new Date().toISOString().split("T")[0];
+    a.download = `alumnos_${date}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleQuitConfirm(date: string, reason: string) {
@@ -505,7 +512,9 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-medium text-foreground">Alumnos</h1>
         <div className="flex items-center gap-2">
-          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors"><Download size={13} /> Exportar CSV</button>
+          <button onClick={exportXLSX} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors">
+            <Download size={13} /> Exportar Excel
+          </button>
           {canAdd && <button onClick={() => setModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"><Plus size={13} /> Agregar alumno</button>}
         </div>
       </div>

@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-// Escape a value for CSV (handle commas, quotes, newlines)
-function escapeCsv(value: string): string {
-  if (!value) return "";
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
+import ExcelJS from "exceljs";
 
 export async function GET(request: NextRequest) {
   // ── Auth check ──────────────────────────────────────────
@@ -19,13 +11,12 @@ export async function GET(request: NextRequest) {
   }
 
   const role = (session.user as any).role;
-  if (!["ADMIN", "SCHEDULE_LEADER"].includes(role)) {
+  if (!["ADMIN", "SCHEDULE_LEADER", "SECRETARY"].includes(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // ── Optional schedule filter via query param ────────────
   const { searchParams } = new URL(request.url);
-  const scheduleFilter = searchParams.get("schedule"); // schedule label or "all"
+  const scheduleFilter = searchParams.get("schedule");
 
   // ── Fetch data ──────────────────────────────────────────
   const course = await prisma.course.findFirst({
@@ -40,6 +31,9 @@ export async function GET(request: NextRequest) {
               facilitator: true,
               students: {
                 orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+                include: {
+                  attendance: true,
+                },
               },
             },
           },
@@ -52,84 +46,222 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No active course" }, { status: 404 });
   }
 
-  // ── Build rows ──────────────────────────────────────────
-  const headers = [
-    "First Name",
-    "Last Name",
-    "Phone",
-    "Address",
-    "Schedule",
-    "Facilitator",
-    "Table",
-  ];
+  // ── Translate schedule labels ───────────────────────────
+  const translateLabel = (label: string) =>
+    label.replace("Wednesday", "Miércoles").replace("Sunday", "Domingo");
 
-  // Check if any student has profileNotes to add dynamic columns
-  const allStudents: Record<string, string>[] = [];
+  // ── Collect all profile question keys ───────────────────
   const profileKeys = new Set<string>();
+  for (const schedule of course.schedules) {
+    for (const table of schedule.tables) {
+      for (const student of table.students) {
+        if (student.profileNotes && typeof student.profileNotes === "object") {
+          for (const key of Object.keys(student.profileNotes as Record<string, any>)) {
+            profileKeys.add(key);
+          }
+        }
+      }
+    }
+  }
+  const sortedProfileKeys = [...profileKeys].sort();
 
+  // ── Build workbook ──────────────────────────────────────
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Discipulado App";
+  workbook.created = new Date();
+
+  // Helper to compute attendance %
+  const computePercent = (attendance: any[]) => {
+    const total = attendance.length;
+    if (total === 0) return 0;
+    const effective = attendance.filter((a) =>
+      ["PRESENT", "PREVIEWED", "RECOVERED"].includes(a.status)
+    ).length;
+    return Math.round((effective / total) * 100);
+  };
+
+  // ── Style helpers ───────────────────────────────────────
+  const headerFill: ExcelJS.Fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF1F2937" }, // dark gray
+  };
+  const headerFont: Partial<ExcelJS.Font> = {
+    bold: true,
+    color: { argb: "FFFFFFFF" },
+    size: 11,
+  };
+  const borderStyle: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FFE5E7EB" } },
+    left: { style: "thin", color: { argb: "FFE5E7EB" } },
+    bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+    right: { style: "thin", color: { argb: "FFE5E7EB" } },
+  };
+
+  // Build a sheet for a list of students
+  function buildSheet(
+    sheet: ExcelJS.Worksheet,
+    students: Array<{
+      firstName: string;
+      lastName: string;
+      phone: string | null;
+      address: string | null;
+      birthdate: Date | null;
+      scheduleLabel: string;
+      facilitatorName: string;
+      tableName: string;
+      attendance: any[];
+      profileNotes: any;
+      status: string;
+    }>
+  ) {
+    const baseHeaders = [
+      "Nombre",
+      "Apellido",
+      "Teléfono",
+      "Nacimiento",
+      "Dirección",
+      "Horario",
+      "Facilitador",
+      "Mesa",
+      "Asistencia %",
+      "Estado",
+    ];
+    const allHeaders = [...baseHeaders, ...sortedProfileKeys];
+
+    // Header row
+    const headerRow = sheet.addRow(allHeaders);
+    headerRow.eachCell((cell) => {
+      cell.fill = headerFill;
+      cell.font = headerFont;
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      cell.border = borderStyle;
+    });
+    headerRow.height = 22;
+
+    // Data rows
+    for (const s of students) {
+      const pct = computePercent(s.attendance);
+      const profileValues = sortedProfileKeys.map((k) => {
+        const notes = s.profileNotes as Record<string, any> | null;
+        return notes && notes[k] !== undefined ? String(notes[k]) : "";
+      });
+
+      const row = sheet.addRow([
+        s.firstName,
+        s.lastName,
+        s.phone || "",
+        s.birthdate ? new Date(s.birthdate).toLocaleDateString("es-MX") : "",
+        s.address || "",
+        translateLabel(s.scheduleLabel),
+        s.facilitatorName,
+        s.tableName,
+        pct / 100, // store as decimal so % format works
+        s.status === "QUIT" ? "Baja" : "Activo",
+        ...profileValues,
+      ]);
+
+      row.eachCell((cell) => {
+        cell.border = borderStyle;
+        cell.alignment = { vertical: "middle", horizontal: "left" };
+      });
+
+      // Format % column
+      const pctCell = row.getCell(9);
+      pctCell.numFmt = "0%";
+      pctCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Color status cell
+      const statusCell = row.getCell(10);
+      statusCell.alignment = { horizontal: "center", vertical: "middle" };
+      if (s.status === "QUIT") {
+        statusCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFEE2E2" },
+        };
+        statusCell.font = { color: { argb: "FFB91C1C" }, bold: true };
+      } else {
+        statusCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFD1FAE5" },
+        };
+        statusCell.font = { color: { argb: "FF065F46" }, bold: true };
+      }
+    }
+
+    // Freeze header row
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    // Auto-width columns
+    sheet.columns.forEach((col, idx) => {
+      let maxLength = allHeaders[idx]?.length || 10;
+      col.eachCell?.({ includeEmpty: false }, (cell) => {
+        const value = cell.value?.toString() || "";
+        if (value.length > maxLength) maxLength = value.length;
+      });
+      col.width = Math.min(Math.max(maxLength + 2, 10), 40);
+    });
+  }
+
+  // ── SUMMARY SHEET (all students) ────────────────────────
+  const allStudentsList: any[] = [];
+  for (const schedule of course.schedules) {
+    for (const table of schedule.tables) {
+      for (const student of table.students) {
+        allStudentsList.push({
+          ...student,
+          scheduleLabel: schedule.label,
+          facilitatorName: table.facilitator.name,
+          tableName: table.name,
+        });
+      }
+    }
+  }
+
+  const summarySheet = workbook.addWorksheet("Resumen", {
+    properties: { tabColor: { argb: "FF1F2937" } },
+  });
+  buildSheet(summarySheet, allStudentsList);
+
+  // ── ONE SHEET PER SCHEDULE ──────────────────────────────
   for (const schedule of course.schedules) {
     if (scheduleFilter && scheduleFilter !== "all" && schedule.label !== scheduleFilter) {
       continue;
     }
 
+    const scheduleStudents: any[] = [];
     for (const table of schedule.tables) {
       for (const student of table.students) {
-        const row: Record<string, string> = {
-          "First Name": student.firstName,
-          "Last Name": student.lastName,
-          Phone: student.phone || "",
-          Address: student.address || "",
-          Schedule: schedule.label,
-          Facilitator: table.facilitator.name,
-          Table: table.name,
-        };
-
-        // Flatten profileNotes JSON into columns
-        if (student.profileNotes && typeof student.profileNotes === "object") {
-          const notes = student.profileNotes as Record<string, any>;
-          for (const [key, value] of Object.entries(notes)) {
-            const colName = key;
-            profileKeys.add(colName);
-            row[colName] = String(value ?? "");
-          }
-        }
-
-        allStudents.push(row);
+        scheduleStudents.push({
+          ...student,
+          scheduleLabel: schedule.label,
+          facilitatorName: table.facilitator.name,
+          tableName: table.name,
+        });
       }
     }
+
+    if (scheduleStudents.length === 0) continue;
+
+    // Sheet name max 31 chars, no special chars
+    const sheetName = translateLabel(schedule.label)
+    .replace(/[*?:\\/\[\]]/g, "")
+    .slice(0, 31);
+    const scheduleSheet = workbook.addWorksheet(sheetName);
+    buildSheet(scheduleSheet, scheduleStudents);
   }
 
-  // Merge dynamic profile columns into headers
-  const sortedProfileKeys = [...profileKeys].sort();
-  const allHeaders = [...headers, ...sortedProfileKeys];
+  // ── Generate buffer ─────────────────────────────────────
+  const buffer = await workbook.xlsx.writeBuffer();
 
-  // ── Generate CSV string ─────────────────────────────────
-  const csvLines: string[] = [];
-
-  // Header row
-  csvLines.push(allHeaders.map(escapeCsv).join(","));
-
-  // Data rows
-  for (const student of allStudents) {
-    const row = allHeaders.map((h) => escapeCsv(student[h] || ""));
-    csvLines.push(row.join(","));
-  }
-
-  // Add BOM for Excel UTF-8 compatibility
-  const bom = "\uFEFF";
-  const csvContent = bom + csvLines.join("\n");
-
-  // ── Build filename ──────────────────────────────────────
   const date = new Date().toISOString().split("T")[0];
-  const scheduleSlug = scheduleFilter && scheduleFilter !== "all"
-    ? `_${scheduleFilter.replace(/\s+/g, "-").toLowerCase()}`
-    : "";
-  const filename = `students${scheduleSlug}_${date}.csv`;
+  const filename = `alumnos_${date}.xlsx`;
 
-  // ── Return response ─────────────────────────────────────
-  return new NextResponse(csvContent, {
+  return new NextResponse(buffer, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
