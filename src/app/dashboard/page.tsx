@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Users, DollarSign, TrendingDown, TrendingUp, Maximize2, X } from "lucide-react";
+import { t } from "@/lib/translate";
 import {
   BarChart, Bar, XAxis, YAxis,
   ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell,
@@ -169,7 +170,7 @@ export default function DashboardHome() {
           {stats!.reasonsBreakdown.map((r, i) => (
             <div key={r.reason} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-              <span className="text-xs text-muted-foreground flex-1">{r.reason}</span>
+              <span className="text-xs text-muted-foreground flex-1">{t(r.reason)}</span>
               <span className="text-xs font-medium text-foreground">{r.count}</span>
             </div>
           ))}

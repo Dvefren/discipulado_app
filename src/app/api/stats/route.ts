@@ -215,10 +215,10 @@ export async function GET() {
   });
 
   // Absent reasons
-  const reasonsBreakdown = absentReasons
+  const reasonsBreakdown: { reason: string; count: number }[] = absentReasons
     .filter((r) => r.absentReason)
     .map((r) => ({
-      reason: r.absentReason!.charAt(0) + r.absentReason!.slice(1).toLowerCase(),
+      reason: r.absentReason as string,
       count: r._count._all,
     }));
   const noReasonCount = absentReasons
