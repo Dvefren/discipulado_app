@@ -76,7 +76,7 @@ export default async function CalendarPage() {
     date: e.date.toISOString(),
     description: e.description ?? null,
     category: e.category as string,
-    createdByName: e.createdBy.name,
+    createdByName: e.createdBy?.name ?? "Usuario eliminado",
     createdById: e.createdById,
   }));
 
