@@ -44,13 +44,14 @@ export async function GET() {
   // ─── BAJAS PER SCHEDULE (no dependency on classes) ─────
   const scheduleIds = schedules.map((s) => s.id);
   const bajasRaw = await prisma.student.groupBy({
-    by: ["tableId"],
-    where: {
-      status: "QUIT",
-      table: { scheduleId: { in: scheduleIds } },
-    },
-    _count: { _all: true },
-  });
+      by: ["tableId"],
+      where: {
+        status: "QUIT",
+        tableId: { not: null },
+        table: { scheduleId: { in: scheduleIds } },
+      },
+      _count: { _all: true },
+    });
 
   // tableId → scheduleId lookup
   const tableToSchedule = new Map<string, string>();
@@ -63,6 +64,7 @@ export async function GET() {
   // scheduleId → bajas count
   const bajasCountBySchedule = new Map<string, number>();
   for (const row of bajasRaw) {
+    if (!row.tableId) continue;
     const schedId = tableToSchedule.get(row.tableId);
     if (schedId) {
       bajasCountBySchedule.set(schedId, (bajasCountBySchedule.get(schedId) || 0) + row._count._all);
