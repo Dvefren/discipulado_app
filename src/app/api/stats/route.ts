@@ -121,7 +121,10 @@ export async function GET() {
       _count: { _all: true },
     }),
     prisma.student.findMany({
-      where: Object.keys(studentFilter).length > 0 ? studentFilter : { table: { scheduleId: { in: schedules.map((s) => s.id) } } },
+      where: {
+        ...(Object.keys(studentFilter).length > 0 ? studentFilter : { table: { scheduleId: { in: schedules.map((s) => s.id) } } }),
+        tableId: { not: null },
+      },
       select: { id: true, tableId: true },
     }),
     prisma.attendance.groupBy({
@@ -143,7 +146,7 @@ export async function GET() {
 
   const studentTableMap = new Map<string, string>();
   for (const s of allStudentsWithTable) {
-    studentTableMap.set(s.id, s.tableId);
+    if (s.tableId) studentTableMap.set(s.id, s.tableId);
   }
 
   const tableStatsMap = new Map<string, { total: number; present: number }>();

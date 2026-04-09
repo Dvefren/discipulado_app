@@ -67,7 +67,10 @@ export async function GET(request: NextRequest) {
     }));
 
   // Student birthdays
-  const studentWhere: any = { birthdate: { not: null } };
+  const studentWhere: any = {
+    birthdate: { not: null },
+    tableId: { not: null },  // exclude "Por definir" students
+  };
   if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
     studentWhere.table = { scheduleId: { in: scope.scheduleIds } };
   }
@@ -85,14 +88,14 @@ export async function GET(request: NextRequest) {
   });
 
   const studentBirthdays = allStudents
-    .filter((s) => s.birthdate && s.birthdate.getUTCMonth() + 1 === month)
+    .filter((s) => s.birthdate && s.table && s.birthdate.getUTCMonth() + 1 === month)
     .map((s) => ({
       id: s.id,
       name: `${s.firstName} ${s.lastName}`,
       day: s.birthdate!.getUTCDate(),
       type: "student_birthday" as const,
-      facilitator: s.table.facilitator.name,
-      schedule: scheduleLabelMap.get(s.table.scheduleId) || null,
+      facilitator: s.table!.facilitator.name,
+      schedule: scheduleLabelMap.get(s.table!.scheduleId) || null,
     }));
 
   // Course events (visible to all roles)
