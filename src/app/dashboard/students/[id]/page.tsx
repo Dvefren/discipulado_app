@@ -52,9 +52,9 @@ export default async function StudentProfilePage({
     birthdate: student.birthdate?.toISOString() || null,
     profileNotes: (student.profileNotes as Record<string, string>) || {},
     createdAt: student.createdAt.toISOString(),
-    schedule: student.table.schedule.label,
-    tableName: student.table.name,
-    facilitator: student.table.facilitator.name,
+    schedule: student.table?.schedule.label ?? "Por definir",
+    tableName: student.table?.name ?? "Por definir",
+    facilitator: student.table?.facilitator.name ?? "Por definir",
     attendance: student.attendance.map((a: any) => ({
       id: a.id,
       status: a.status ?? (a.present ? "PRESENT" : "ABSENT"),
