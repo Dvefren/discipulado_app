@@ -32,6 +32,40 @@ export async function GET(
   if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Check scope access
+// Unassigned students ("Por definir") have no table yet — only ADMIN/SECRETARY can view them
+  if (!student.table || !student.tableId) {
+    if (scope.role !== "ADMIN" && scope.role !== "SECRETARY") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    // Return a minimal response since there's no schedule/facilitator/classes to reference
+    return NextResponse.json({
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      birthdate: student.birthdate ? student.birthdate.toISOString().split("T")[0] : null,
+      birthdateFormatted: student.birthdate
+        ? student.birthdate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
+        : null,
+      phone: student.phone,
+      address: student.address,
+      profileNotes: student.profileNotes || {},
+      tableName: "Por definir",
+      facilitatorName: "Por definir",
+      scheduleLabel: "Por definir",
+      attendanceHistory: [],
+      stats: {
+        totalClasses: 0,
+        markedClasses: 0,
+        presentClasses: 0,
+        absentClasses: 0,
+        previewedClasses: 0,
+        recoveredClasses: 0,
+        attendancePercent: null,
+      },
+    });
+  }
+
+  // Check scope access
   if (scope.role === "FACILITATOR" && scope.tableIds.length > 0) {
     if (!scope.tableIds.includes(student.tableId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -42,12 +76,10 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   }
-
   // Get schedule label
   const schedule = await prisma.schedule.findUnique({
     where: { id: student.table.scheduleId },
   });
-
   // Get all classes for this schedule to show full attendance history
   const allClasses = await prisma.class.findMany({
     where: { scheduleId: student.table.scheduleId },
