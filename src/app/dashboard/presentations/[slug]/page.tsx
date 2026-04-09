@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, ArrowLeft, Maximize2, Minimize2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, Maximize2, X } from "lucide-react";
 import presentationsData from "../../../../../public/presentations.json";
 
 interface Presentation {
@@ -25,6 +25,15 @@ export default function PresentationViewer() {
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
+  const prevSlide = useCallback(() => {
+    setCurrentSlide((s) => (s > 1 ? s - 1 : s));
+  }, []);
+
+  const nextSlide = useCallback(() => {
+    if (!presentation) return;
+    setCurrentSlide((s) => (s < presentation.slideCount ? s + 1 : s));
+  }, [presentation]);
+
   // Keyboard navigation
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -35,7 +44,7 @@ export default function PresentationViewer() {
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  });
+  }, [prevSlide, nextSlide, isFullscreen]);
 
   // Lock body scroll in fullscreen
   useEffect(() => {
@@ -51,14 +60,6 @@ export default function PresentationViewer() {
 
   if (!presentation) {
     return notFound();
-  }
-
-  function prevSlide() {
-    setCurrentSlide((s) => (s > 1 ? s - 1 : s));
-  }
-
-  function nextSlide() {
-    setCurrentSlide((s) => (s < presentation!.slideCount ? s + 1 : s));
   }
 
   // Touch / swipe handlers
@@ -84,50 +85,56 @@ export default function PresentationViewer() {
   // ─── Fullscreen mode ─────────────────────────────────
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 text-white">
-          <span className="text-sm font-medium">{presentation.title}</span>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-white/70">
-              {currentSlide} / {presentation.slideCount}
-            </span>
-            <button
-              onClick={() => setIsFullscreen(false)}
-              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              title="Salir (Esc)"
-            >
-              <X size={18} />
-            </button>
-          </div>
+      <div className="fixed inset-0 z-50 bg-black flex flex-col h-dvh overflow-hidden">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
+          <span className="text-sm font-medium truncate pr-3">{presentation.title}</span>
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+            title="Salir (Esc)"
+          >
+            <X size={18} />
+          </button>
         </div>
 
+        {/* Slide area — min-h-0 is the critical fix */}
         <div
-          className="flex-1 flex items-center justify-center relative px-4 pb-4"
+          className="flex-1 min-h-0 flex items-center justify-center px-4"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <button
-            onClick={prevSlide}
-            disabled={currentSlide === 1}
-            className="absolute left-4 z-10 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={24} />
-          </button>
-
           <img
             src={slideUrl}
             alt={`Slide ${currentSlide}`}
             className="max-w-full max-h-full object-contain select-none"
             draggable={false}
           />
+        </div>
+
+        {/* Bottom control bar — arrows live here so they never cover the slide */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 shrink-0">
+          <button
+            onClick={prevSlide}
+            disabled={currentSlide === 1}
+            className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Slide anterior"
+          >
+            <ChevronLeft size={22} />
+          </button>
+
+          <span className="text-xs text-white/70 tabular-nums">
+            {currentSlide} / {presentation.slideCount}
+          </span>
 
           <button
             onClick={nextSlide}
             disabled={currentSlide === presentation.slideCount}
-            className="absolute right-4 z-10 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Slide siguiente"
           >
-            <ChevronRight size={24} />
+            <ChevronRight size={22} />
           </button>
         </div>
       </div>
@@ -175,7 +182,6 @@ export default function PresentationViewer() {
             draggable={false}
           />
 
-          {/* Prev button */}
           <button
             onClick={prevSlide}
             disabled={currentSlide === 1}
@@ -185,7 +191,6 @@ export default function PresentationViewer() {
             <ChevronLeft size={18} />
           </button>
 
-          {/* Next button */}
           <button
             onClick={nextSlide}
             disabled={currentSlide === presentation.slideCount}
