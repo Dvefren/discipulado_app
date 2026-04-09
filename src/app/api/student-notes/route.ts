@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
         where: { id: studentId },
         include: { table: true },
       });
-      if (!student || student.table.facilitatorId !== facilitator.id) {
-        return NextResponse.json({ error: "Solo puedes agregar notas a tus propios alumnos" }, { status: 403 });
+      if (!student || !student.table || student.table.facilitatorId !== facilitator.id) {
+                return NextResponse.json({ error: "Solo puedes agregar notas a tus propios alumnos" }, { status: 403 });
       }
     } else {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
