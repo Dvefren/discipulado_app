@@ -8,11 +8,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
   const { firstName, lastName, phone, address, birthdate, tableId, profileNotes } = await req.json();
 
-  if (!firstName || !lastName || !tableId) {
-    return NextResponse.json({ error: "Nombre, apellido y facilitador son requeridos" }, { status: 400 });
+  // tableId is now optional — null means "Por definir"
+  if (!firstName || !lastName) {
+    return NextResponse.json({ error: "Nombre y apellido son requeridos" }, { status: 400 });
   }
 
   const student = await prisma.student.create({
@@ -22,11 +22,10 @@ export async function POST(req: NextRequest) {
       phone: phone || null,
       address: address || null,
       birthdate: birthdate ? new Date(birthdate + "T12:00:00Z") : null,
-      tableId,
+      tableId: tableId || null,
       profileNotes: profileNotes ?? {},
     },
   });
-
   return NextResponse.json(student, { status: 201 });
 }
 
@@ -36,9 +35,30 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
   const body = await req.json();
   const { id, action, ...updates } = body;
+
+  // ─── Bulk assign ──────────────────────────────────────
+  // Expects: { action: "bulkAssign", studentIds: string[], tableId: string }
+  if (action === "bulkAssign") {
+    const { studentIds, tableId } = body;
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return NextResponse.json({ error: "studentIds requerido" }, { status: 400 });
+    }
+    if (!tableId) {
+      return NextResponse.json({ error: "tableId requerido" }, { status: 400 });
+    }
+    // Verify the table exists before running updateMany
+    const table = await prisma.facilitatorTable.findUnique({ where: { id: tableId } });
+    if (!table) {
+      return NextResponse.json({ error: "Facilitador no encontrado" }, { status: 404 });
+    }
+    const result = await prisma.student.updateMany({
+      where: { id: { in: studentIds } },
+      data: { tableId },
+    });
+    return NextResponse.json({ ok: true, count: result.count });
+  }
 
   if (!id) {
     return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
@@ -72,14 +92,13 @@ export async function PATCH(req: NextRequest) {
 
   // ─── Normal update ─────────────────────────────────────
   const data: Record<string, any> = {};
-
   if (updates.firstName !== undefined) data.firstName = updates.firstName;
   if (updates.lastName !== undefined) data.lastName = updates.lastName;
   if (updates.phone !== undefined) data.phone = updates.phone || null;
   if (updates.address !== undefined) data.address = updates.address || null;
   if (updates.profileNotes !== undefined) data.profileNotes = updates.profileNotes;
-  if (updates.tableId !== undefined) data.tableId = updates.tableId;
-
+  // tableId can now be set to null explicitly to "unassign"
+  if (updates.tableId !== undefined) data.tableId = updates.tableId || null;
   if (updates.birthdate !== undefined) {
     data.birthdate = updates.birthdate
       ? new Date(updates.birthdate + "T12:00:00Z")
@@ -90,7 +109,6 @@ export async function PATCH(req: NextRequest) {
     where: { id },
     data,
   });
-
   return NextResponse.json(student);
 }
 
@@ -100,15 +118,11 @@ export async function DELETE(req: NextRequest) {
   if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
   const { id } = await req.json();
-
   if (!id) {
     return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
   }
-
   await prisma.attendance.deleteMany({ where: { studentId: id } });
   await prisma.student.delete({ where: { id } });
-
   return NextResponse.json({ ok: true });
 }

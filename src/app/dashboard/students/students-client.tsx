@@ -1,8 +1,9 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, Plus, Phone, MapPin, Calendar, ChevronLeft, Pencil, UserMinus, UserPlus,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp, MessageSquare, Send,
+  HelpCircle, CheckSquare, Square,
 } from "lucide-react";
 import { t } from "@/lib/translate";
 
@@ -24,6 +25,9 @@ interface Props {
   scheduleOptions: ScheduleOption[]; profileQuestions: ProfileQuestion[];
   role: string; userId: string; facilitatorTableIds: string[];
 }
+
+// Sentinel value used to represent unassigned students in scheduleLabel / filter state
+const UNASSIGNED_LABEL = "Por definir";
 
 const statusMeta: Record<AttendanceStatus, { color: string; label: string; light: string }> = {
   PRESENT:   { color: "bg-green-500",  label: "Presente",  light: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
@@ -121,7 +125,6 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
         <span className="text-xs text-muted-foreground">({notes.length})</span>
       </div>
 
-      {/* Add note input */}
       {canWrite && (
         <div className="flex gap-2 mb-4">
           <input type="text" value={newNote} onChange={(e) => setNewNote(e.target.value)}
@@ -135,7 +138,6 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
         </div>
       )}
 
-      {/* Notes list */}
       {loading ? (
         <div className="py-6 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></div>
       ) : notes.length === 0 ? (
@@ -197,24 +199,58 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
 // ─── Edit Student Modal ──────────────────────────────────
 function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { student: Student; scheduleOptions: ScheduleOption[]; onClose: () => void; onUpdated: (updated: Student) => void }) {
   const [saving, setSaving] = useState(false);
+  // ─── NEW ─── support unassigned state in edit modal too
+  const [tbd, setTbd] = useState(student.tableId === "");
   const [selectedScheduleId, setSelectedScheduleId] = useState(student.scheduleId);
   const [selectedTableId, setSelectedTableId] = useState(student.tableId);
   const [form, setForm] = useState({ firstName: student.firstName, lastName: student.lastName, phone: student.phone ?? "", address: student.address ?? "", birthdate: student.birthdate ? student.birthdate.split("T")[0] : "" });
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
   function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
+
   async function handleSave() {
-    if (!form.firstName || !form.lastName || !selectedTableId) return;
+    if (!form.firstName || !form.lastName) return;
+    if (!tbd && !selectedTableId) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/students", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: student.id, ...form, phone: form.phone || null, address: form.address || null, birthdate: form.birthdate || null, tableId: selectedTableId }) });
+      const res = await fetch("/api/students", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: student.id,
+          ...form,
+          phone: form.phone || null,
+          address: form.address || null,
+          birthdate: form.birthdate || null,
+          tableId: tbd ? null : selectedTableId,
+        }),
+      });
       if (res.ok) {
-        const sel = scheduleOptions.find((s) => s.id === selectedScheduleId);
-        const tbl = availableTables.find((tt) => tt.id === selectedTableId);
-        onUpdated({ ...student, ...form, phone: form.phone || null, address: form.address || null, birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null, scheduleId: selectedScheduleId, tableId: selectedTableId, scheduleLabel: sel?.label ?? student.scheduleLabel, tableName: tbl?.name ?? student.tableName, facilitatorName: tbl?.name ?? student.facilitatorName });
+        if (tbd) {
+          onUpdated({
+            ...student, ...form,
+            phone: form.phone || null, address: form.address || null,
+            birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
+            scheduleId: "", tableId: "",
+            scheduleLabel: UNASSIGNED_LABEL, tableName: UNASSIGNED_LABEL, facilitatorName: UNASSIGNED_LABEL,
+          });
+        } else {
+          const sel = scheduleOptions.find((s) => s.id === selectedScheduleId);
+          const tbl = availableTables.find((tt) => tt.id === selectedTableId);
+          onUpdated({
+            ...student, ...form,
+            phone: form.phone || null, address: form.address || null,
+            birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
+            scheduleId: selectedScheduleId, tableId: selectedTableId,
+            scheduleLabel: sel?.label ?? student.scheduleLabel,
+            tableName: tbl?.name ?? student.tableName,
+            facilitatorName: tbl?.name ?? student.facilitatorName,
+          });
+        }
         onClose();
       }
     } finally { setSaving(false); }
   }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -230,13 +266,58 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
           <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label><select value={selectedScheduleId} onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"><option value="">Seleccionar horario</option>{scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}</select></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label><select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"><option value="">Seleccionar facilitador</option>{availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}</select></div>
+
+          {/* ─── NEW ─── TBD toggle */}
+          <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2">
+              <HelpCircle size={14} className="text-muted-foreground" />
+              <span className="text-xs text-foreground">Por definir</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
+            </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
+              <select
+                value={selectedScheduleId}
+                onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+                disabled={tbd}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">Seleccionar horario</option>
+                {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
+              <select
+                value={selectedTableId}
+                onChange={(e) => setSelectedTableId(e.target.value)}
+                disabled={tbd || !selectedScheduleId}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">Seleccionar facilitador</option>
+                {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+              </select>
+            </div>
+          </div>
+
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-            <button onClick={handleSave} disabled={!form.firstName || !form.lastName || !selectedTableId || saving} className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{saving ? "Guardando..." : "Guardar cambios"}</button>
+            <button
+              onClick={handleSave}
+              disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving}
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
           </div>
         </div>
       </div>
@@ -263,8 +344,6 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
   const [savedNotes, setSavedNotes] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const canEdit = role === "ADMIN" || role === "SECRETARY";
-
-  // Can write notes: admin, secretary, or facilitator who owns this student's table
   const canWriteNotes = role === "ADMIN" || role === "SECRETARY" || (role === "FACILITATOR" && facilitatorTableIds.includes(student.tableId));
 
   async function saveChurchNotes() {
@@ -275,6 +354,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
   }
 
   const enrolledDate = new Date(student.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+  const isUnassigned = student.tableId === "";
 
   return (
     <div>
@@ -282,7 +362,16 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
       <div className="flex items-start justify-between gap-3 mb-5">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-base font-semibold text-purple-700 dark:text-purple-300 shrink-0">{student.firstName[0]}{student.lastName[0]}</div>
-          <div className="min-w-0"><h2 className="text-base font-semibold text-foreground truncate">{student.firstName} {student.lastName}</h2><p className="text-xs text-muted-foreground truncate">{t(student.scheduleLabel)} · {student.tableName} · {student.facilitatorName}</p></div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground truncate">{student.firstName} {student.lastName}</h2>
+            <p className="text-xs text-muted-foreground truncate">
+              {isUnassigned ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"><HelpCircle size={10} /> Por definir</span>
+              ) : (
+                `${t(student.scheduleLabel)} · ${student.tableName} · ${student.facilitatorName}`
+              )}
+            </p>
+          </div>
         </div>
         <div className="flex items-start gap-2 shrink-0">
           {canEdit && (<>
@@ -326,9 +415,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
             </div>
           </div>); })}</div>}
       </div>
-      {/* Notes Timeline */}
       <NotesTimeline studentId={student.id} canWrite={canWriteNotes} />
-      {/* Personal info */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Información personal</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -338,7 +425,6 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
           {!student.phone && !student.birthdate && !student.address && <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>}
         </div>
       </div>
-      {/* Church questions */}
       {profileQuestions.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
@@ -363,23 +449,53 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
 // ─── Add Student Modal ────────────────────────────────────
 function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }: { scheduleOptions: ScheduleOption[]; profileQuestions: ProfileQuestion[]; onClose: () => void; onAdded: (s: Student) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [scanning, setScanning] = useState(false); const [saving, setSaving] = useState(false);
-  const [selectedScheduleId, setSelectedScheduleId] = useState(""); const [selectedTableId, setSelectedTableId] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // ─── NEW ─── TBD state
+  const [tbd, setTbd] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [selectedTableId, setSelectedTableId] = useState("");
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", address: "", birthdate: "" });
   const [notes, setNotes] = useState<Record<string, string>>({});
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
   function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
+
   async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return; setScanning(true);
-    try { const fd = new FormData(); fd.append("image", file); const res = await fetch("/api/ocr/student", { method: "POST", body: fd });
-      if (res.ok) { const data = await res.json(); setForm((f) => ({ ...f, firstName: data.firstName ?? f.firstName, lastName: data.lastName ?? f.lastName, phone: data.phone ?? f.phone, address: data.address ?? f.address, birthdate: data.birthdate ?? f.birthdate }));
-        if (data.churchAnswers) { const mapped: Record<string, string> = {}; for (const q of profileQuestions) { if (data.churchAnswers[q.question]) mapped[q.id] = data.churchAnswers[q.question]; } if (Object.keys(mapped).length > 0) setNotes((prev) => ({ ...prev, ...mapped })); }
-    }} finally { setScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
+    try {
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch("/api/ocr/student", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setForm((f) => ({ ...f, firstName: data.firstName ?? f.firstName, lastName: data.lastName ?? f.lastName, phone: data.phone ?? f.phone, address: data.address ?? f.address, birthdate: data.birthdate ?? f.birthdate }));
+        if (data.churchAnswers) {
+          const mapped: Record<string, string> = {};
+          for (const q of profileQuestions) { if (data.churchAnswers[q.question]) mapped[q.id] = data.churchAnswers[q.question]; }
+          if (Object.keys(mapped).length > 0) setNotes((prev) => ({ ...prev, ...mapped }));
+        }
+      }
+    } finally { setScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
   }
+
   async function handleSave() {
-    if (!form.firstName || !form.lastName || !selectedTableId) return; setSaving(true);
-    try { const res = await fetch("/api/students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, birthdate: form.birthdate || null, tableId: selectedTableId, profileNotes: notes }) }); if (res.ok) window.location.reload(); } finally { setSaving(false); }
+    if (!form.firstName || !form.lastName) return;
+    if (!tbd && !selectedTableId) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          birthdate: form.birthdate || null,
+          tableId: tbd ? null : selectedTableId,
+          profileNotes: notes,
+        }),
+      });
+      if (res.ok) window.location.reload();
+    } finally { setSaving(false); }
   }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -404,10 +520,53 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
           <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Calle, Colonia, Ciudad" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label><select value={selectedScheduleId} onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"><option value="">Seleccionar horario</option>{scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}</select></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label><select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)} disabled={!selectedScheduleId} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"><option value="">Seleccionar facilitador</option>{availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}</select></div>
+
+          {/* ─── NEW ─── TBD toggle */}
+          <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2">
+              <HelpCircle size={14} className="text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-foreground">Por definir</span>
+                <span className="text-[10px] text-muted-foreground">Asignar horario y facilitador después</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
+              aria-pressed={tbd}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
+            </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
+              <select
+                value={selectedScheduleId}
+                onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+                disabled={tbd}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">Seleccionar horario</option>
+                {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
+              <select
+                value={selectedTableId}
+                onChange={(e) => setSelectedTableId(e.target.value)}
+                disabled={tbd || !selectedScheduleId}
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">Seleccionar facilitador</option>
+                {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+              </select>
+            </div>
+          </div>
+
           {profileQuestions.length > 0 && (
             <div className="border-t border-border pt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Preguntas de la iglesia</p>
@@ -421,8 +580,79 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
           )}
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-            <button onClick={handleSave} disabled={!form.firstName || !form.lastName || !selectedTableId || saving} className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{saving ? "Guardando..." : "Agregar alumno"}</button>
+            <button onClick={handleSave} disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving} className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{saving ? "Guardando..." : "Agregar alumno"}</button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── NEW ─── Bulk Assign Modal ───────────────────────────
+function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
+  count: number; scheduleOptions: ScheduleOption[];
+  onClose: () => void;
+  onConfirm: (tableId: string, scheduleLabel: string, tableName: string) => void;
+}) {
+  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [selectedTableId, setSelectedTableId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const selectedSchedule = scheduleOptions.find((s) => s.id === selectedScheduleId);
+  const availableTables = selectedSchedule?.tables ?? [];
+
+  async function handleSave() {
+    if (!selectedTableId || !selectedSchedule) return;
+    const tbl = availableTables.find((tt) => tt.id === selectedTableId);
+    if (!tbl) return;
+    setSaving(true);
+    onConfirm(selectedTableId, selectedSchedule.label, tbl.name);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold">Asignar horario</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Asignar <span className="font-medium text-foreground">{count} alumno{count !== 1 ? "s" : ""}</span> al mismo horario y facilitador.
+        </p>
+        <div className="space-y-3 mb-5">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label>
+            <select
+              value={selectedScheduleId}
+              onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Seleccionar horario</option>
+              {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label>
+            <select
+              value={selectedTableId}
+              onChange={(e) => setSelectedTableId(e.target.value)}
+              disabled={!selectedScheduleId}
+              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+            >
+              <option value="">Seleccionar facilitador</option>
+              {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+          <button
+            onClick={handleSave}
+            disabled={!selectedTableId || saving}
+            className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {saving ? "Asignando..." : "Asignar"}
+          </button>
         </div>
       </div>
     </div>
@@ -442,24 +672,64 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
+  // ─── NEW ─── Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+
   const canAdd = role === "ADMIN" || role === "SECRETARY";
   const canDelete = role === "ADMIN" || role === "SECRETARY";
+  const canBulkAssign = role === "ADMIN" || role === "SECRETARY";
+
+  // ─── NEW ─── scheduleLabels now includes "Por definir" sentinel
   const scheduleLabels = scheduleOptions.map((s) => s.label);
+  const hasUnassigned = students.some((s) => s.tableId === "") || quitStudents.some((s) => s.tableId === "");
 
   const currentList = activeTab === "active" ? students : quitStudents;
   const filtered = currentList.filter((s) => {
-    const matchSchedule = filter === "all" || s.scheduleLabel === filter;
+    const matchSchedule =
+      filter === "all" ||
+      (filter === UNASSIGNED_LABEL ? s.tableId === "" : s.scheduleLabel === filter);
     const matchSearch = search.trim() === "" || `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
     return matchSchedule && matchSearch;
   });
 
+  // ─── NEW ─── Clear selection when tab/filter/search changes
+  useEffect(() => { setSelectedIds(new Set()); }, [activeTab, filter, search]);
+
+  const filteredIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
+  const allVisibleSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected = filteredIds.some((id) => selectedIds.has(id));
+
+  function toggleOne(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    if (allVisibleSelected) {
+      // Deselect only the visible ones, keep others intact
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredIds.forEach((id) => next.add(id));
+        return next;
+      });
+    }
+  }
+
   async function exportXLSX() {
     const params = filter !== "all" ? `?schedule=${encodeURIComponent(filter)}` : "";
     const res = await fetch(`/api/students/export${params}`);
-    if (!res.ok) {
-      alert("Error al exportar.");
-      return;
-    }
+    if (!res.ok) { alert("Error al exportar."); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -492,6 +762,35 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
     const res = await fetch("/api/students", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     if (res.ok) { setStudents((prev) => prev.filter((s) => s.id !== id)); setQuitStudents((prev) => prev.filter((s) => s.id !== id)); if (selectedStudent?.id === id) setSelectedStudent(null); }
     setDeletingId(null);
+  }
+
+  // ─── NEW ─── Bulk assign handler
+  async function handleBulkAssignConfirm(tableId: string, scheduleLabel: string, tableName: string) {
+    const ids = Array.from(selectedIds);
+    setBulkAssigning(true);
+    try {
+      const res = await fetch("/api/students", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bulkAssign", studentIds: ids, tableId }),
+      });
+      if (res.ok) {
+        // Optimistically update local state
+        setStudents((prev) =>
+          prev.map((s) =>
+            ids.includes(s.id)
+              ? { ...s, tableId, scheduleLabel, tableName, facilitatorName: tableName, scheduleId: scheduleOptions.find((o) => o.label === scheduleLabel)?.id ?? s.scheduleId }
+              : s
+          )
+        );
+        setSelectedIds(new Set());
+        setBulkAssignOpen(false);
+      } else {
+        alert("Error al asignar alumnos. Intenta de nuevo.");
+      }
+    } finally {
+      setBulkAssigning(false);
+    }
   }
 
   if (selectedStudent) {
@@ -527,9 +826,9 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <input type="text" placeholder="Buscar alumnos..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
         <div className="flex gap-1.5 flex-wrap">
-          {["all", ...scheduleLabels].map((label) => (
+          {["all", ...scheduleLabels, ...(hasUnassigned ? [UNASSIGNED_LABEL] : [])].map((label) => (
             <button key={label} onClick={() => setFilter(label)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${filter === label ? "bg-muted font-medium text-foreground border-border" : "text-muted-foreground border-border hover:text-foreground"}`}>
-              {label === "all" ? "Todos" : t(label)}
+              {label === "all" ? "Todos" : label === UNASSIGNED_LABEL ? UNASSIGNED_LABEL : t(label)}
             </button>
           ))}
         </div>
@@ -538,6 +837,18 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full">
           <thead><tr className="border-b border-border">
+            {/* ─── NEW ─── Select-all checkbox column */}
+            {canBulkAssign && activeTab === "active" && (
+              <th className="w-10 px-3 py-2.5">
+                <button
+                  onClick={toggleAllVisible}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title={allVisibleSelected ? "Deseleccionar todo" : "Seleccionar todo"}
+                >
+                  {allVisibleSelected ? <CheckSquare size={15} /> : someVisibleSelected ? <CheckSquare size={15} className="opacity-60" /> : <Square size={15} />}
+                </button>
+              </th>
+            )}
             <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Nombre</th>
             <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Horario</th>
             <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground hidden sm:table-cell">Facilitador</th>
@@ -548,14 +859,33 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
           </tr></thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">{activeTab === "bajas" ? "No hay alumnos dados de baja." : "No se encontraron alumnos."}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">{activeTab === "bajas" ? "No hay alumnos dados de baja." : "No se encontraron alumnos."}</td></tr>
             ) : filtered.map((student) => {
-              const tot = student.attendance.length; const eff = student.attendance.filter((a) => isAttended(a.status)).length; const pct = tot > 0 ? Math.round((eff / tot) * 100) : null;
+              const tot = student.attendance.length;
+              const eff = student.attendance.filter((a) => isAttended(a.status)).length;
+              const pct = tot > 0 ? Math.round((eff / tot) * 100) : null;
+              const isUnassigned = student.tableId === "";
+              const isSelected = selectedIds.has(student.id);
               return (
-                <tr key={student.id} onClick={() => activeTab === "active" ? setSelectedStudent(student) : null} className={`border-b border-border/50 hover:bg-muted/40 transition-colors ${activeTab === "active" ? "cursor-pointer" : ""}`}>
-                  <td className="px-4 py-2.5 text-sm text-foreground font-medium">{student.firstName} {student.lastName}</td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{t(student.scheduleLabel)}</td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{student.facilitatorName}</td>
+                <tr key={student.id} onClick={() => activeTab === "active" ? setSelectedStudent(student) : null} className={`border-b border-border/50 hover:bg-muted/40 transition-colors ${activeTab === "active" ? "cursor-pointer" : ""} ${isSelected ? "bg-muted/60" : ""}`}>
+                  {/* ─── NEW ─── Row checkbox */}
+                  {canBulkAssign && activeTab === "active" && (
+                    <td className="px-3 py-2.5" onClick={(e) => { e.stopPropagation(); toggleOne(student.id); }}>
+                      <button className="text-muted-foreground hover:text-foreground transition-colors">
+                        {isSelected ? <CheckSquare size={15} className="text-primary" /> : <Square size={15} />}
+                      </button>
+                    </td>
+                  )}
+                  <td className="px-4 py-2.5 text-sm text-foreground font-medium">
+                    {student.firstName} {student.lastName}
+                    {isUnassigned && (
+                      <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground align-middle">
+                        <HelpCircle size={9} /> Por definir
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : t(student.scheduleLabel)}</td>
+                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : student.facilitatorName}</td>
                   {activeTab === "active" && <td className="px-4 py-2.5">{pct !== null ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pct >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : pct >= 60 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}>{pct}%</span> : <span className="text-xs text-muted-foreground">—</span>}</td>}
                   {activeTab === "bajas" && <td className="px-4 py-2.5 text-xs text-muted-foreground">{student.quitDate ? new Date(student.quitDate).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>}
                   {activeTab === "bajas" && <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{student.quitReason || "—"}</td>}
@@ -573,12 +903,12 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       </div>
 
       {activeTab === "bajas" && filtered.length > 0 && (() => {
-        const filteredActive = students.filter((s) => filter === "all" || s.scheduleLabel === filter);
+        const filteredActive = students.filter((s) => filter === "all" || (filter === UNASSIGNED_LABEL ? s.tableId === "" : s.scheduleLabel === filter));
         const filteredQuit = filtered;
         const totalEnrolled = filteredActive.length + filteredQuit.length;
         return (
         <div className="mt-4 bg-card border border-border rounded-xl p-4">
-          <h3 className="text-sm font-medium text-foreground mb-3">Resumen de bajas{filter !== "all" ? ` — ${t(filter)}` : ""}</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">Resumen de bajas{filter !== "all" ? ` — ${filter === UNASSIGNED_LABEL ? UNASSIGNED_LABEL : t(filter)}` : ""}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-muted rounded-lg p-3"><p className="text-xs text-muted-foreground mb-1">Total bajas</p><p className="text-xl font-semibold text-foreground">{filteredQuit.length}</p></div>
             <div className="bg-muted rounded-lg p-3"><p className="text-xs text-muted-foreground mb-1">Activos</p><p className="text-xl font-semibold text-foreground">{filteredActive.length}</p></div>
@@ -590,6 +920,40 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
 
       {modalOpen && <AddStudentModal scheduleOptions={scheduleOptions} profileQuestions={profileQuestions} onClose={() => setModalOpen(false)} onAdded={(s) => { setStudents((prev) => [...prev, s]); setModalOpen(false); }} />}
       {quitModalStudent && <QuitModal student={quitModalStudent} onClose={() => setQuitModalStudent(null)} onConfirm={handleQuitConfirm} />}
+
+      {/* ─── NEW ─── Bulk assign modal */}
+      {bulkAssignOpen && (
+        <BulkAssignModal
+          count={selectedIds.size}
+          scheduleOptions={scheduleOptions}
+          onClose={() => setBulkAssignOpen(false)}
+          onConfirm={handleBulkAssignConfirm}
+        />
+      )}
+
+      {/* ─── NEW ─── Floating bottom action bar */}
+      {canBulkAssign && selectedIds.size > 0 && activeTab === "active" && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full px-4 py-2.5 flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <span className="text-xs font-medium text-foreground">
+            {selectedIds.size} seleccionado{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <div className="w-px h-4 bg-border" />
+          <button
+            onClick={() => setBulkAssignOpen(true)}
+            disabled={bulkAssigning}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {bulkAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserPlus size={12} />}
+            Asignar horario
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
