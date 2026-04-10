@@ -154,6 +154,8 @@ model Student {
   quitDate      DateTime?
   quitReason    String?
   notes       StudentNote[]
+  relationsA  StudentRelationship[] @relation("RelationA")
+  relationsB  StudentRelationship[] @relation("RelationB")
 }
 model StudentNote {
   id        String   @id @default(cuid())
@@ -164,6 +166,18 @@ model StudentNote {
 
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+model StudentRelationship {
+  id         String   @id @default(cuid())
+  studentAId String
+  studentBId String
+  type       String   // "Esposo/a", "Hermano/a", "Padre/Madre", "Hijo/a", "Otro"
+  createdAt  DateTime @default(now())
+
+  studentA   Student  @relation("RelationA", fields: [studentAId], references: [id], onDelete: Cascade)
+  studentB   Student  @relation("RelationB", fields: [studentBId], references: [id], onDelete: Cascade)
+
+  @@unique([studentAId, studentBId])
 }
 // ─── ATTENDANCE ─────────────────────────────────────────
 model Attendance {

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, Plus, Phone, MapPin, Calendar, ChevronLeft, Pencil, UserMinus, UserPlus,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp, MessageSquare, Send,
-  HelpCircle, CheckSquare, Square,
+  HelpCircle, CheckSquare, Square, Users,
 } from "lucide-react";
 import { t } from "@/lib/translate";
 
@@ -416,6 +416,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
           </div>); })}</div>}
       </div>
       <NotesTimeline studentId={student.id} canWrite={canWriteNotes} />
+      <RelationshipsSection studentId={student.id} canEdit={canEdit} />
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Información personal</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -442,6 +443,216 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
         </div>
       )}
       {editOpen && <EditStudentModal student={student} scheduleOptions={scheduleOptions} onClose={() => setEditOpen(false)} onUpdated={(u) => { onUpdated(u); setEditOpen(false); }} />}
+    </div>
+  );
+}
+
+// ─── Relationships Section ───────────────────────────────
+function RelationshipsSection({ studentId, canEdit }: { studentId: string; canEdit: boolean }) {
+  const [relationships, setRelationships] = useState<{
+    id: string; relatedStudent: { id: string; firstName: string; lastName: string };
+    type: string; createdAt: string;
+  }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
+  const [relType, setRelType] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const relationshipTypes = ["Esposo/a", "Hermano/a", "Padre/Madre", "Hijo/a", "Otro"];
+
+  useEffect(() => {
+    fetch(`/api/student-relationships?studentId=${studentId}`)
+      .then((r) => r.json())
+      .then((data) => { setRelationships(Array.isArray(data) ? data : []); setLoading(false); });
+  }, [studentId]);
+
+  // Debounced student search
+  function handleSearch(query: string) {
+    setSearchQuery(query);
+    setSelectedStudent(null);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/students/list?search=${encodeURIComponent(query.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          // Filter out current student and already-related students
+          const existingIds = new Set([studentId, ...relationships.map((r) => r.relatedStudent.id)]);
+          const filtered = (data.students || []).filter((s: any) => !existingIds.has(s.id));
+          setSearchResults(filtered.slice(0, 5));
+        }
+      } finally { setSearching(false); }
+    }, 300);
+  }
+
+  async function handleAdd() {
+    if (!selectedStudent || !relType) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/student-relationships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentAId: studentId, studentBId: selectedStudent.id, type: relType }),
+      });
+      if (res.ok) {
+        const rel = await res.json();
+        setRelationships((prev) => [...prev, rel]);
+        setAddOpen(false);
+        setSearchQuery("");
+        setSelectedStudent(null);
+        setRelType("");
+        setSearchResults([]);
+      }
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("¿Eliminar esta relación?")) return;
+    setDeletingId(id);
+    const res = await fetch("/api/student-relationships", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) setRelationships((prev) => prev.filter((r) => r.id !== id));
+    setDeletingId(null);
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users size={14} className="text-muted-foreground" />
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Familiares en el curso</h3>
+          {!loading && <span className="text-xs text-muted-foreground">({relationships.length})</span>}
+        </div>
+        {canEdit && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border border-border text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Plus size={11} /> Agregar
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="py-4 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></div>
+      ) : relationships.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-3">Sin familiares registrados en el curso.</p>
+      ) : (
+        <div className="space-y-2">
+          {relationships.map((rel) => (
+            <div key={rel.id} className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-[10px] font-semibold text-purple-700 dark:text-purple-300 shrink-0">
+                  {rel.relatedStudent.firstName[0]}{rel.relatedStudent.lastName[0]}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground truncate">{rel.relatedStudent.firstName} {rel.relatedStudent.lastName}</p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-medium text-muted-foreground shrink-0">{rel.type}</span>
+              </div>
+              {canEdit && (
+                <button
+                  onClick={() => handleDelete(rel.id)}
+                  disabled={deletingId === rel.id}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-red-500 transition-all disabled:opacity-50"
+                >
+                  {deletingId === rel.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Relationship Modal */}
+      {addOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
+          <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold">Agregar familiar</h2>
+              <button onClick={() => setAddOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Student search */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Buscar alumno *</label>
+                <input
+                  type="text"
+                  value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onFocus={() => { if (selectedStudent) { setSelectedStudent(null); setSearchQuery(""); } }}
+                  placeholder="Escribe el nombre..."
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                {/* Search results dropdown */}
+                {searchQuery.length >= 2 && !selectedStudent && (
+                  <div className="mt-1 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {searching ? (
+                      <div className="p-3 text-center"><Loader2 size={14} className="animate-spin text-muted-foreground mx-auto" /></div>
+                    ) : searchResults.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground text-center">No se encontraron alumnos.</p>
+                    ) : (
+                      searchResults.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedStudent(s); setSearchQuery(""); setSearchResults([]); }}
+                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted/60 transition-colors"
+                        >
+                          {s.firstName} {s.lastName}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Relationship type */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Relación *</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {relationshipTypes.map((rt) => (
+                    <button
+                      key={rt}
+                      onClick={() => setRelType(rt)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        relType === rt
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {rt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setAddOpen(false)} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+              <button
+                onClick={handleAdd}
+                disabled={!selectedStudent || !relType || saving}
+                className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {saving ? "Guardando..." : "Agregar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
