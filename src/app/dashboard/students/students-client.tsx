@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import {
   X, Plus, Phone, MapPin, Calendar, ChevronLeft, Pencil, UserMinus, UserPlus,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp, MessageSquare, Send,
@@ -26,8 +26,13 @@ interface Props {
   role: string; userId: string; facilitatorTableIds: string[];
 }
 
-// Sentinel value used to represent unassigned students in scheduleLabel / filter state
 const UNASSIGNED_LABEL = "Por definir";
+
+// ─── Module-level formatters (created once, reused everywhere) ──
+const fmtShort = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric" });
+const fmtLong = new Intl.DateTimeFormat("es-MX", { year: "numeric", month: "long", day: "numeric" });
+const fmtMonthDay = new Intl.DateTimeFormat("es-MX", { month: "short", day: "numeric" });
+const fmtTime = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" });
 
 const statusMeta: Record<AttendanceStatus, { color: string; label: string; light: string }> = {
   PRESENT:   { color: "bg-green-500",  label: "Presente",  light: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" },
@@ -93,8 +98,7 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
     if (!newNote.trim()) return;
     setSending(true);
     const res = await fetch("/api/student-notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ studentId, content: newNote.trim() }),
     });
     if (res.ok) {
@@ -109,8 +113,7 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
     if (!confirm("¿Eliminar esta nota?")) return;
     setDeletingId(noteId);
     const res = await fetch("/api/student-notes", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: noteId }),
     });
     if (res.ok) setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -124,7 +127,6 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notas del alumno</h3>
         <span className="text-xs text-muted-foreground">({notes.length})</span>
       </div>
-
       {canWrite && (
         <div className="flex gap-2 mb-4">
           <input type="text" value={newNote} onChange={(e) => setNewNote(e.target.value)}
@@ -137,35 +139,204 @@ function NotesTimeline({ studentId, canWrite }: { studentId: string; canWrite: b
           </button>
         </div>
       )}
-
       {loading ? (
         <div className="py-6 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></div>
       ) : notes.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-4">Sin notas aún.</p>
       ) : (
         <div className="space-y-3">
-          {notes.map((note) => (
-            <div key={note.id} className="group relative pl-4 border-l-2 border-border hover:border-primary/50 transition-colors">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">{note.authorName}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{roleLabels[note.authorRole] ?? note.authorRole}</span>
+          {notes.map((note) => {
+            const noteDate = new Date(note.createdAt);
+            return (
+              <div key={note.id} className="group relative pl-4 border-l-2 border-border hover:border-primary/50 transition-colors">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">{note.authorName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{roleLabels[note.authorRole] ?? note.authorRole}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      {fmtShort.format(noteDate)} {fmtTime.format(noteDate)}
+                    </span>
+                    <button onClick={() => handleDelete(note.id)} disabled={deletingId === note.id}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-red-500 transition-all disabled:opacity-50">
+                      {deletingId === note.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(note.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
-                    {" "}
-                    {new Date(note.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  <button onClick={() => handleDelete(note.id)} disabled={deletingId === note.id}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-red-500 transition-all disabled:opacity-50">
-                    {deletingId === note.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                  </button>
-                </div>
+                <p className="text-sm text-foreground/80">{note.content}</p>
               </div>
-              <p className="text-sm text-foreground/80">{note.content}</p>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Relationships Section ───────────────────────────────
+function RelationshipsSection({ studentId, canEdit }: { studentId: string; canEdit: boolean }) {
+  const [relationships, setRelationships] = useState<{ id: string; relatedStudent: { id: string; firstName: string; lastName: string }; type: string; createdAt: string; }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
+  const [relType, setRelType] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const relationshipTypes = ["Esposo/a", "Hermano/a", "Padre/Madre", "Hijo/a", "Otro"];
+
+  useEffect(() => {
+    fetch(`/api/student-relationships?studentId=${studentId}`)
+      .then((r) => r.json())
+      .then((data) => { setRelationships(Array.isArray(data) ? data : []); setLoading(false); });
+  }, [studentId]);
+
+  function handleSearch(query: string) {
+    setSearchQuery(query);
+    setSelectedStudent(null);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/students/list?search=${encodeURIComponent(query.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          const existingIds = new Set([studentId, ...relationships.map((r) => r.relatedStudent.id)]);
+          const filtered = (data.students || []).filter((s: any) => !existingIds.has(s.id));
+          setSearchResults(filtered.slice(0, 5));
+        }
+      } finally { setSearching(false); }
+    }, 300);
+  }
+
+  async function handleAdd() {
+    if (!selectedStudent || !relType) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/student-relationships", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentAId: studentId, studentBId: selectedStudent.id, type: relType }),
+      });
+      if (res.ok) {
+        const rel = await res.json();
+        setRelationships((prev) => [...prev, rel]);
+        setAddOpen(false); setSearchQuery(""); setSelectedStudent(null); setRelType(""); setSearchResults([]);
+      }
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("¿Eliminar esta relación?")) return;
+    setDeletingId(id);
+    const res = await fetch("/api/student-relationships", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) setRelationships((prev) => prev.filter((r) => r.id !== id));
+    setDeletingId(null);
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users size={14} className="text-muted-foreground" />
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Familiares en el curso</h3>
+          {!loading && <span className="text-xs text-muted-foreground">({relationships.length})</span>}
+        </div>
+        {canEdit && (
+          <button onClick={() => setAddOpen(true)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border border-border text-muted-foreground hover:text-foreground transition-colors">
+            <Plus size={11} /> Agregar
+          </button>
+        )}
+      </div>
+      {loading ? (
+        <div className="py-4 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></div>
+      ) : relationships.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-3">Sin familiares registrados en el curso.</p>
+      ) : (
+        <div className="space-y-2">
+          {relationships.map((rel) => (
+            <div key={rel.id} className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-[10px] font-semibold text-purple-700 dark:text-purple-300 shrink-0">
+                  {rel.relatedStudent.firstName[0]}{rel.relatedStudent.lastName[0]}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground truncate">{rel.relatedStudent.firstName} {rel.relatedStudent.lastName}</p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-medium text-muted-foreground shrink-0">{rel.type}</span>
+              </div>
+              {canEdit && (
+                <button onClick={() => handleDelete(rel.id)} disabled={deletingId === rel.id}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-red-500 transition-all disabled:opacity-50">
+                  {deletingId === rel.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                </button>
+              )}
             </div>
           ))}
+        </div>
+      )}
+      {addOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
+          <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold">Agregar familiar</h2>
+              <button onClick={() => setAddOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Buscar alumno *</label>
+                <input type="text"
+                  value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onFocus={() => { if (selectedStudent) { setSelectedStudent(null); setSearchQuery(""); } }}
+                  placeholder="Escribe el nombre..."
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                {searchQuery.length >= 2 && !selectedStudent && (
+                  <div className="mt-1 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {searching ? (
+                      <div className="p-3 text-center"><Loader2 size={14} className="animate-spin text-muted-foreground mx-auto" /></div>
+                    ) : searchResults.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground text-center">No se encontraron alumnos.</p>
+                    ) : (
+                      searchResults.map((s) => (
+                        <button key={s.id} onClick={() => { setSelectedStudent(s); setSearchQuery(""); setSearchResults([]); }}
+                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted/60 transition-colors">
+                          {s.firstName} {s.lastName}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Relación *</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {relationshipTypes.map((rt) => (
+                    <button key={rt} onClick={() => setRelType(rt)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${relType === rt ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>
+                      {rt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setAddOpen(false)} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+              <button onClick={handleAdd} disabled={!selectedStudent || !relType || saving}
+                className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {saving ? "Guardando..." : "Agregar"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -199,7 +370,6 @@ function AttendanceBar({ attendance }: { attendance: AttendanceRecord[] }) {
 // ─── Edit Student Modal ──────────────────────────────────
 function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { student: Student; scheduleOptions: ScheduleOption[]; onClose: () => void; onUpdated: (updated: Student) => void }) {
   const [saving, setSaving] = useState(false);
-  // ─── NEW ─── support unassigned state in edit modal too
   const [tbd, setTbd] = useState(student.tableId === "");
   const [selectedScheduleId, setSelectedScheduleId] = useState(student.scheduleId);
   const [selectedTableId, setSelectedTableId] = useState(student.tableId);
@@ -213,13 +383,10 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
     setSaving(true);
     try {
       const res = await fetch("/api/students", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: student.id,
-          ...form,
-          phone: form.phone || null,
-          address: form.address || null,
+          id: student.id, ...form,
+          phone: form.phone || null, address: form.address || null,
           birthdate: form.birthdate || null,
           tableId: tbd ? null : selectedTableId,
         }),
@@ -267,17 +434,14 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
           </div>
           <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
 
-          {/* ─── NEW ─── TBD toggle */}
           <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
               <HelpCircle size={14} className="text-muted-foreground" />
               <span className="text-xs text-foreground">Por definir</span>
             </div>
-            <button
-              type="button"
+            <button type="button"
               onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
-            >
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}>
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
             </button>
           </div>
@@ -285,24 +449,20 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
-              <select
-                value={selectedScheduleId}
+              <select value={selectedScheduleId}
                 onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
                 disabled={tbd}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-              >
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
                 <option value="">Seleccionar horario</option>
                 {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
-              <select
-                value={selectedTableId}
+              <select value={selectedTableId}
                 onChange={(e) => setSelectedTableId(e.target.value)}
                 disabled={tbd || !selectedScheduleId}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-              >
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
                 <option value="">Seleccionar facilitador</option>
                 {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
               </select>
@@ -311,11 +471,9 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
 
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-            <button
-              onClick={handleSave}
+            <button onClick={handleSave}
               disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving}
-              className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
               {saving ? "Guardando..." : "Guardar cambios"}
             </button>
           </div>
@@ -353,7 +511,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
     onUpdated({ ...student, profileNotes: notes });
   }
 
-  const enrolledDate = new Date(student.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+  const enrolledDate = fmtShort.format(new Date(student.createdAt));
   const isUnassigned = student.tableId === "";
 
   return (
@@ -381,7 +539,6 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
           <div className="text-right"><p className="text-2xl font-bold text-foreground">{pct}%</p><p className="text-xs text-muted-foreground">asistencia</p></div>
         </div>
       </div>
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-3"><p className="text-xs text-green-700 dark:text-green-400 mb-1">Presente</p><p className="text-xl font-semibold text-green-800 dark:text-green-300">{present}</p></div>
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3"><p className="text-xs text-red-700 dark:text-red-400 mb-1">Ausente</p><p className="text-xl font-semibold text-red-800 dark:text-red-300">{absent}</p></div>
@@ -390,7 +547,6 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
         <div className="bg-card border border-border rounded-xl p-3"><p className="text-xs text-muted-foreground mb-1">Total clases</p><p className="text-xl font-semibold text-foreground">{total}</p></div>
         <div className="bg-card border border-border rounded-xl p-3"><p className="text-xs text-muted-foreground mb-1">Inscrito</p><p className="text-sm font-semibold text-foreground">{enrolledDate}</p></div>
       </div>
-      {/* Attendance report */}
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <div className="flex flex-col gap-2 mb-3">
           <h3 className="text-sm font-medium text-foreground">Reporte de asistencia</h3>
@@ -410,7 +566,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
           <div key={a.id} className="flex items-center justify-between gap-2 text-xs py-1 border-b border-border/50">
             <span className="text-foreground truncate min-w-0">{a.className}</span>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-muted-foreground hidden sm:inline">{new Date(a.classDate).toLocaleDateString("es-MX", { month: "short", day: "numeric" })}</span>
+              <span className="text-muted-foreground hidden sm:inline">{fmtMonthDay.format(new Date(a.classDate))}</span>
               <span className={`px-2 py-0.5 rounded-full font-medium ${meta.light}`}>{meta.label}</span>
             </div>
           </div>); })}</div>}
@@ -421,7 +577,7 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Información personal</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {student.phone && <div><p className="text-xs text-muted-foreground mb-0.5">Teléfono</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Phone size={12} className="text-muted-foreground" />{student.phone}</div></div>}
-          {student.birthdate && <div><p className="text-xs text-muted-foreground mb-0.5">Fecha de nacimiento</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Calendar size={12} className="text-muted-foreground" />{new Date(student.birthdate).toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" })}</div></div>}
+          {student.birthdate && <div><p className="text-xs text-muted-foreground mb-0.5">Fecha de nacimiento</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Calendar size={12} className="text-muted-foreground" />{fmtLong.format(new Date(student.birthdate))}</div></div>}
           {student.address && <div className="sm:col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Dirección</p><div className="flex items-center gap-1.5 text-sm text-foreground"><MapPin size={12} className="text-muted-foreground" />{student.address}</div></div>}
           {!student.phone && !student.birthdate && !student.address && <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>}
         </div>
@@ -447,222 +603,11 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
   );
 }
 
-// ─── Relationships Section ───────────────────────────────
-function RelationshipsSection({ studentId, canEdit }: { studentId: string; canEdit: boolean }) {
-  const [relationships, setRelationships] = useState<{
-    id: string; relatedStudent: { id: string; firstName: string; lastName: string };
-    type: string; createdAt: string;
-  }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [addOpen, setAddOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{ id: string; firstName: string; lastName: string }[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
-  const [relType, setRelType] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
-
-  const relationshipTypes = ["Esposo/a", "Hermano/a", "Padre/Madre", "Hijo/a", "Otro"];
-
-  useEffect(() => {
-    fetch(`/api/student-relationships?studentId=${studentId}`)
-      .then((r) => r.json())
-      .then((data) => { setRelationships(Array.isArray(data) ? data : []); setLoading(false); });
-  }, [studentId]);
-
-  // Debounced student search
-  function handleSearch(query: string) {
-    setSearchQuery(query);
-    setSelectedStudent(null);
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (query.trim().length < 2) { setSearchResults([]); return; }
-    searchTimeout.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(`/api/students/list?search=${encodeURIComponent(query.trim())}`);
-        if (res.ok) {
-          const data = await res.json();
-          // Filter out current student and already-related students
-          const existingIds = new Set([studentId, ...relationships.map((r) => r.relatedStudent.id)]);
-          const filtered = (data.students || []).filter((s: any) => !existingIds.has(s.id));
-          setSearchResults(filtered.slice(0, 5));
-        }
-      } finally { setSearching(false); }
-    }, 300);
-  }
-
-  async function handleAdd() {
-    if (!selectedStudent || !relType) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/student-relationships", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentAId: studentId, studentBId: selectedStudent.id, type: relType }),
-      });
-      if (res.ok) {
-        const rel = await res.json();
-        setRelationships((prev) => [...prev, rel]);
-        setAddOpen(false);
-        setSearchQuery("");
-        setSelectedStudent(null);
-        setRelType("");
-        setSearchResults([]);
-      }
-    } finally { setSaving(false); }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta relación?")) return;
-    setDeletingId(id);
-    const res = await fetch("/api/student-relationships", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) setRelationships((prev) => prev.filter((r) => r.id !== id));
-    setDeletingId(null);
-  }
-
-  return (
-    <div className="bg-card border border-border rounded-xl p-4 mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Users size={14} className="text-muted-foreground" />
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Familiares en el curso</h3>
-          {!loading && <span className="text-xs text-muted-foreground">({relationships.length})</span>}
-        </div>
-        {canEdit && (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] border border-border text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Plus size={11} /> Agregar
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="py-4 text-center"><Loader2 size={16} className="animate-spin text-muted-foreground mx-auto" /></div>
-      ) : relationships.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-3">Sin familiares registrados en el curso.</p>
-      ) : (
-        <div className="space-y-2">
-          {relationships.map((rel) => (
-            <div key={rel.id} className="group flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-[10px] font-semibold text-purple-700 dark:text-purple-300 shrink-0">
-                  {rel.relatedStudent.firstName[0]}{rel.relatedStudent.lastName[0]}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{rel.relatedStudent.firstName} {rel.relatedStudent.lastName}</p>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-medium text-muted-foreground shrink-0">{rel.type}</span>
-              </div>
-              {canEdit && (
-                <button
-                  onClick={() => handleDelete(rel.id)}
-                  disabled={deletingId === rel.id}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-red-500 transition-all disabled:opacity-50"
-                >
-                  {deletingId === rel.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add Relationship Modal */}
-      {addOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
-          <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold">Agregar familiar</h2>
-              <button onClick={() => setAddOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
-            </div>
-
-            <div className="space-y-3">
-              {/* Student search */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Buscar alumno *</label>
-                <input
-                  type="text"
-                  value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onFocus={() => { if (selectedStudent) { setSelectedStudent(null); setSearchQuery(""); } }}
-                  placeholder="Escribe el nombre..."
-                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                {/* Search results dropdown */}
-                {searchQuery.length >= 2 && !selectedStudent && (
-                  <div className="mt-1 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                    {searching ? (
-                      <div className="p-3 text-center"><Loader2 size={14} className="animate-spin text-muted-foreground mx-auto" /></div>
-                    ) : searchResults.length === 0 ? (
-                      <p className="p-3 text-xs text-muted-foreground text-center">No se encontraron alumnos.</p>
-                    ) : (
-                      searchResults.map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSelectedStudent(s); setSearchQuery(""); setSearchResults([]); }}
-                          className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted/60 transition-colors"
-                        >
-                          {s.firstName} {s.lastName}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Relationship type */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Relación *</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {relationshipTypes.map((rt) => (
-                    <button
-                      key={rt}
-                      onClick={() => setRelType(rt)}
-                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-                        relType === rt
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {rt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => setAddOpen(false)} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-              <button
-                onClick={handleAdd}
-                disabled={!selectedStudent || !relType || saving}
-                className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {saving ? "Guardando..." : "Agregar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Add Student Modal ────────────────────────────────────
 function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }: { scheduleOptions: ScheduleOption[]; profileQuestions: ProfileQuestion[]; onClose: () => void; onAdded: (s: Student) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
-  // ─── NEW ─── TBD state
   const [tbd, setTbd] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedTableId, setSelectedTableId] = useState("");
@@ -694,11 +639,9 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
     setSaving(true);
     try {
       const res = await fetch("/api/students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
-          birthdate: form.birthdate || null,
+          ...form, birthdate: form.birthdate || null,
           tableId: tbd ? null : selectedTableId,
           profileNotes: notes,
         }),
@@ -732,7 +675,6 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
           </div>
           <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Calle, Colonia, Ciudad" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
 
-          {/* ─── NEW ─── TBD toggle */}
           <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
               <HelpCircle size={14} className="text-muted-foreground" />
@@ -741,12 +683,10 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
                 <span className="text-[10px] text-muted-foreground">Asignar horario y facilitador después</span>
               </div>
             </div>
-            <button
-              type="button"
+            <button type="button"
               onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
-              aria-pressed={tbd}
-            >
+              aria-pressed={tbd}>
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
             </button>
           </div>
@@ -754,24 +694,20 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
-              <select
-                value={selectedScheduleId}
+              <select value={selectedScheduleId}
                 onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
                 disabled={tbd}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-              >
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
                 <option value="">Seleccionar horario</option>
                 {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
-              <select
-                value={selectedTableId}
+              <select value={selectedTableId}
                 onChange={(e) => setSelectedTableId(e.target.value)}
                 disabled={tbd || !selectedScheduleId}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-              >
+                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
                 <option value="">Seleccionar facilitador</option>
                 {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
               </select>
@@ -799,7 +735,7 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
   );
 }
 
-// ─── NEW ─── Bulk Assign Modal ───────────────────────────
+// ─── Bulk Assign Modal ───────────────────────────────────
 function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
   count: number; scheduleOptions: ScheduleOption[];
   onClose: () => void;
@@ -811,7 +747,7 @@ function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
   const selectedSchedule = scheduleOptions.find((s) => s.id === selectedScheduleId);
   const availableTables = selectedSchedule?.tables ?? [];
 
-  async function handleSave() {
+  function handleSave() {
     if (!selectedTableId || !selectedSchedule) return;
     const tbl = availableTables.find((tt) => tt.id === selectedTableId);
     if (!tbl) return;
@@ -833,23 +769,19 @@ function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
         <div className="space-y-3 mb-5">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Horario *</label>
-            <select
-              value={selectedScheduleId}
+            <select value={selectedScheduleId}
               onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
-              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
+              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
               <option value="">Seleccionar horario</option>
               {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador *</label>
-            <select
-              value={selectedTableId}
+            <select value={selectedTableId}
               onChange={(e) => setSelectedTableId(e.target.value)}
               disabled={!selectedScheduleId}
-              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-            >
+              className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
               <option value="">Seleccionar facilitador</option>
               {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
             </select>
@@ -857,11 +789,8 @@ function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
         </div>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-          <button
-            onClick={handleSave}
-            disabled={!selectedTableId || saving}
-            className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={!selectedTableId || saving}
+            className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
             {saving ? "Asignando..." : "Asignar"}
           </button>
         </div>
@@ -870,20 +799,117 @@ function BulkAssignModal({ count, scheduleOptions, onClose, onConfirm }: {
   );
 }
 
+// ─── Memoized Student Row (KEY PERF OPTIMIZATION) ────────
+interface StudentRowProps {
+  student: Student;
+  isSelected: boolean;
+  activeTab: "active" | "bajas";
+  canBulkAssign: boolean;
+  canDelete: boolean;
+  deletingId: string | null;
+  reactivatingId: string | null;
+  onRowClick: (student: Student) => void;
+  onToggle: (id: string) => void;
+  onQuit: (student: Student) => void;
+  onReactivate: (id: string) => void;
+  onDelete: (id: string, e: React.MouseEvent) => void;
+}
+
+const StudentRow = memo(function StudentRow({
+  student, isSelected, activeTab, canBulkAssign, canDelete,
+  deletingId, reactivatingId, onRowClick, onToggle, onQuit, onReactivate, onDelete,
+}: StudentRowProps) {
+  const tot = student.attendance.length;
+  const eff = student.attendance.filter((a) => isAttended(a.status)).length;
+  const pct = tot > 0 ? Math.round((eff / tot) * 100) : null;
+  const isUnassigned = student.tableId === "";
+
+  return (
+    <tr
+      onClick={() => activeTab === "active" && onRowClick(student)}
+      className={`border-b border-border/50 hover:bg-muted/40 transition-colors ${activeTab === "active" ? "cursor-pointer" : ""} ${isSelected ? "bg-muted/60" : ""}`}
+    >
+      {canBulkAssign && activeTab === "active" && (
+        <td className="px-3 py-2.5" onClick={(e) => { e.stopPropagation(); onToggle(student.id); }}>
+          <button className="text-muted-foreground hover:text-foreground transition-colors">
+            {isSelected ? <CheckSquare size={15} className="text-primary" /> : <Square size={15} />}
+          </button>
+        </td>
+      )}
+      <td className="px-4 py-2.5 text-sm text-foreground font-medium">
+        {student.firstName} {student.lastName}
+        {isUnassigned && (
+          <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground align-middle">
+            <HelpCircle size={9} /> Por definir
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : t(student.scheduleLabel)}</td>
+      <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : student.facilitatorName}</td>
+      {activeTab === "active" && (
+        <td className="px-4 py-2.5">
+          {pct !== null ? (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pct >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : pct >= 60 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}>{pct}%</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </td>
+      )}
+      {activeTab === "bajas" && (
+        <td className="px-4 py-2.5 text-xs text-muted-foreground">
+          {student.quitDate ? fmtShort.format(new Date(student.quitDate)) : "—"}
+        </td>
+      )}
+      {activeTab === "bajas" && (
+        <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{student.quitReason || "—"}</td>
+      )}
+      {canDelete && (
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 justify-end">
+            {activeTab === "bajas" && (
+              <button onClick={() => onReactivate(student.id)} disabled={reactivatingId === student.id}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50" title="Reactivar">
+                {reactivatingId === student.id ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
+              </button>
+            )}
+            {activeTab === "active" && (
+              <button onClick={() => onQuit(student)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Dar de baja">
+                <UserMinus size={13} />
+              </button>
+            )}
+            <button onClick={(e) => onDelete(student.id, e)} disabled={deletingId === student.id}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50" title="Eliminar">
+              {deletingId === student.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            </button>
+          </div>
+        </td>
+      )}
+    </tr>
+  );
+});
+
 // ─── Main list ───────────────────────────────────────────
 export function StudentsClient({ students: initialStudents, quitStudents: initialQuit, scheduleOptions, profileQuestions, role, userId, facilitatorTableIds }: Props) {
   const [students, setStudents] = useState(initialStudents);
   const [quitStudents, setQuitStudents] = useState(initialQuit);
   const [activeTab, setActiveTab] = useState<"active" | "bajas">("active");
   const [filter, setFilter] = useState("all");
+
+  // Debounced search: searchInput = what user types (fast), search = what actually filters (debounced)
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 150);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [quitModalStudent, setQuitModalStudent] = useState<Student | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
-  // ─── NEW ─── Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -892,50 +918,88 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
   const canDelete = role === "ADMIN" || role === "SECRETARY";
   const canBulkAssign = role === "ADMIN" || role === "SECRETARY";
 
-  // ─── NEW ─── scheduleLabels now includes "Por definir" sentinel
-  const scheduleLabels = scheduleOptions.map((s) => s.label);
-  const hasUnassigned = students.some((s) => s.tableId === "") || quitStudents.some((s) => s.tableId === "");
+  const scheduleLabels = useMemo(() => scheduleOptions.map((s) => s.label), [scheduleOptions]);
+  const hasUnassigned = useMemo(
+    () => students.some((s) => s.tableId === "") || quitStudents.some((s) => s.tableId === ""),
+    [students, quitStudents]
+  );
 
-  const currentList = activeTab === "active" ? students : quitStudents;
-  const filtered = currentList.filter((s) => {
-    const matchSchedule =
-      filter === "all" ||
-      (filter === UNASSIGNED_LABEL ? s.tableId === "" : s.scheduleLabel === filter);
-    const matchSearch = search.trim() === "" || `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase());
-    return matchSchedule && matchSearch;
-  });
+  // ─── MEMOIZED FILTERING (critical INP fix) ──────────────
+  const filtered = useMemo(() => {
+    const currentList = activeTab === "active" ? students : quitStudents;
+    const searchLower = search.trim().toLowerCase();
+    return currentList.filter((s) => {
+      const matchSchedule =
+        filter === "all" ||
+        (filter === UNASSIGNED_LABEL ? s.tableId === "" : s.scheduleLabel === filter);
+      if (!matchSchedule) return false;
+      if (searchLower === "") return true;
+      return `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchLower);
+    });
+  }, [activeTab, students, quitStudents, filter, search]);
 
-  // ─── NEW ─── Clear selection when tab/filter/search changes
   useEffect(() => { setSelectedIds(new Set()); }, [activeTab, filter, search]);
 
   const filteredIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
   const allVisibleSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedIds.has(id));
   const someVisibleSelected = filteredIds.some((id) => selectedIds.has(id));
 
-  function toggleOne(id: string) {
+  // ─── STABLE CALLBACKS for memoized rows ────────────────
+  const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  }
+  }, []);
 
-  function toggleAllVisible() {
-    if (allVisibleSelected) {
-      // Deselect only the visible ones, keep others intact
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
+  const toggleAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
         filteredIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
+      } else {
         filteredIds.forEach((id) => next.add(id));
-        return next;
+      }
+      return next;
+    });
+  }, [allVisibleSelected, filteredIds]);
+
+  const handleRowClick = useCallback((student: Student) => {
+    setSelectedStudent(student);
+  }, []);
+
+  const handleQuitClick = useCallback((student: Student) => {
+    setQuitModalStudent(student);
+  }, []);
+
+  const handleReactivate = useCallback(async (id: string) => {
+    if (!confirm("¿Reactivar este alumno? Volverá a la lista activa.")) return;
+    setReactivatingId(id);
+    const res = await fetch("/api/students", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action: "reactivate" }) });
+    if (res.ok) {
+      setQuitStudents((prev) => {
+        const st = prev.find((s) => s.id === id);
+        if (!st) return prev;
+        setStudents((curr) => [...curr, { ...st, status: "ACTIVE", quitDate: null, quitReason: null }]);
+        return prev.filter((s) => s.id !== id);
       });
     }
-  }
+    setReactivatingId(null);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("¿Eliminar este alumno permanentemente? Esta acción no se puede deshacer.")) return;
+    setDeletingId(id);
+    const res = await fetch("/api/students", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (res.ok) {
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+      setQuitStudents((prev) => prev.filter((s) => s.id !== id));
+      setSelectedStudent((curr) => curr?.id === id ? null : curr);
+    }
+    setDeletingId(null);
+  }, []);
 
   async function exportXLSX() {
     const params = filter !== "all" ? `?schedule=${encodeURIComponent(filter)}` : "";
@@ -954,39 +1018,24 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
   async function handleQuitConfirm(date: string, reason: string) {
     if (!quitModalStudent) return;
     const res = await fetch("/api/students", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: quitModalStudent.id, action: "quit", quitDate: date, quitReason: reason }) });
-    if (res.ok) { const updated = { ...quitModalStudent, status: "QUIT", quitDate: new Date(date).toISOString(), quitReason: reason || null }; setStudents((prev) => prev.filter((s) => s.id !== quitModalStudent.id)); setQuitStudents((prev) => [...prev, updated]); if (selectedStudent?.id === quitModalStudent.id) setSelectedStudent(null); }
+    if (res.ok) {
+      const updated = { ...quitModalStudent, status: "QUIT", quitDate: new Date(date).toISOString(), quitReason: reason || null };
+      setStudents((prev) => prev.filter((s) => s.id !== quitModalStudent.id));
+      setQuitStudents((prev) => [...prev, updated]);
+      if (selectedStudent?.id === quitModalStudent.id) setSelectedStudent(null);
+    }
     setQuitModalStudent(null);
   }
 
-  async function handleReactivate(id: string) {
-    if (!confirm("¿Reactivar este alumno? Volverá a la lista activa.")) return;
-    setReactivatingId(id);
-    const res = await fetch("/api/students", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, action: "reactivate" }) });
-    if (res.ok) { const st = quitStudents.find((s) => s.id === id); if (st) { setQuitStudents((prev) => prev.filter((s) => s.id !== id)); setStudents((prev) => [...prev, { ...st, status: "ACTIVE", quitDate: null, quitReason: null }]); } }
-    setReactivatingId(null);
-  }
-
-  async function handleDelete(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!confirm("¿Eliminar este alumno permanentemente? Esta acción no se puede deshacer.")) return;
-    setDeletingId(id);
-    const res = await fetch("/api/students", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (res.ok) { setStudents((prev) => prev.filter((s) => s.id !== id)); setQuitStudents((prev) => prev.filter((s) => s.id !== id)); if (selectedStudent?.id === id) setSelectedStudent(null); }
-    setDeletingId(null);
-  }
-
-  // ─── NEW ─── Bulk assign handler
   async function handleBulkAssignConfirm(tableId: string, scheduleLabel: string, tableName: string) {
     const ids = Array.from(selectedIds);
     setBulkAssigning(true);
     try {
       const res = await fetch("/api/students", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "bulkAssign", studentIds: ids, tableId }),
       });
       if (res.ok) {
-        // Optimistically update local state
         setStudents((prev) =>
           prev.map((s) =>
             ids.includes(s.id)
@@ -1035,7 +1084,7 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input type="text" placeholder="Buscar alumnos..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+        <input type="text" placeholder="Buscar alumnos..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
         <div className="flex gap-1.5 flex-wrap">
           {["all", ...scheduleLabels, ...(hasUnassigned ? [UNASSIGNED_LABEL] : [])].map((label) => (
             <button key={label} onClick={() => setFilter(label)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${filter === label ? "bg-muted font-medium text-foreground border-border" : "text-muted-foreground border-border hover:text-foreground"}`}>
@@ -1048,14 +1097,11 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <table className="w-full">
           <thead><tr className="border-b border-border">
-            {/* ─── NEW ─── Select-all checkbox column */}
             {canBulkAssign && activeTab === "active" && (
               <th className="w-10 px-3 py-2.5">
-                <button
-                  onClick={toggleAllVisible}
+                <button onClick={toggleAllVisible}
                   className="text-muted-foreground hover:text-foreground transition-colors"
-                  title={allVisibleSelected ? "Deseleccionar todo" : "Seleccionar todo"}
-                >
+                  title={allVisibleSelected ? "Deseleccionar todo" : "Seleccionar todo"}>
                   {allVisibleSelected ? <CheckSquare size={15} /> : someVisibleSelected ? <CheckSquare size={15} className="opacity-60" /> : <Square size={15} />}
                 </button>
               </th>
@@ -1071,44 +1117,23 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
           <tbody>
             {filtered.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">{activeTab === "bajas" ? "No hay alumnos dados de baja." : "No se encontraron alumnos."}</td></tr>
-            ) : filtered.map((student) => {
-              const tot = student.attendance.length;
-              const eff = student.attendance.filter((a) => isAttended(a.status)).length;
-              const pct = tot > 0 ? Math.round((eff / tot) * 100) : null;
-              const isUnassigned = student.tableId === "";
-              const isSelected = selectedIds.has(student.id);
-              return (
-                <tr key={student.id} onClick={() => activeTab === "active" ? setSelectedStudent(student) : null} className={`border-b border-border/50 hover:bg-muted/40 transition-colors ${activeTab === "active" ? "cursor-pointer" : ""} ${isSelected ? "bg-muted/60" : ""}`}>
-                  {/* ─── NEW ─── Row checkbox */}
-                  {canBulkAssign && activeTab === "active" && (
-                    <td className="px-3 py-2.5" onClick={(e) => { e.stopPropagation(); toggleOne(student.id); }}>
-                      <button className="text-muted-foreground hover:text-foreground transition-colors">
-                        {isSelected ? <CheckSquare size={15} className="text-primary" /> : <Square size={15} />}
-                      </button>
-                    </td>
-                  )}
-                  <td className="px-4 py-2.5 text-sm text-foreground font-medium">
-                    {student.firstName} {student.lastName}
-                    {isUnassigned && (
-                      <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground align-middle">
-                        <HelpCircle size={9} /> Por definir
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : t(student.scheduleLabel)}</td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground hidden sm:table-cell">{isUnassigned ? <span className="text-muted-foreground/60">—</span> : student.facilitatorName}</td>
-                  {activeTab === "active" && <td className="px-4 py-2.5">{pct !== null ? <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${pct >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : pct >= 60 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}>{pct}%</span> : <span className="text-xs text-muted-foreground">—</span>}</td>}
-                  {activeTab === "bajas" && <td className="px-4 py-2.5 text-xs text-muted-foreground">{student.quitDate ? new Date(student.quitDate).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—"}</td>}
-                  {activeTab === "bajas" && <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell truncate max-w-[200px]">{student.quitReason || "—"}</td>}
-                  {canDelete && <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1 justify-end">
-                      {activeTab === "bajas" && <button onClick={() => handleReactivate(student.id)} disabled={reactivatingId === student.id} className="p-1.5 rounded-lg text-muted-foreground hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors disabled:opacity-50" title="Reactivar">{reactivatingId === student.id ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}</button>}
-                      {activeTab === "active" && <button onClick={() => setQuitModalStudent(student)} className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors" title="Dar de baja"><UserMinus size={13} /></button>}
-                      <button onClick={(e) => handleDelete(student.id, e)} disabled={deletingId === student.id} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50" title="Eliminar">{deletingId === student.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}</button>
-                    </div>
-                  </td>}
-                </tr>);
-            })}
+            ) : filtered.map((student) => (
+              <StudentRow
+                key={student.id}
+                student={student}
+                isSelected={selectedIds.has(student.id)}
+                activeTab={activeTab}
+                canBulkAssign={canBulkAssign}
+                canDelete={canDelete}
+                deletingId={deletingId}
+                reactivatingId={reactivatingId}
+                onRowClick={handleRowClick}
+                onToggle={toggleOne}
+                onQuit={handleQuitClick}
+                onReactivate={handleReactivate}
+                onDelete={handleDelete}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -1131,36 +1156,21 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
 
       {modalOpen && <AddStudentModal scheduleOptions={scheduleOptions} profileQuestions={profileQuestions} onClose={() => setModalOpen(false)} onAdded={(s) => { setStudents((prev) => [...prev, s]); setModalOpen(false); }} />}
       {quitModalStudent && <QuitModal student={quitModalStudent} onClose={() => setQuitModalStudent(null)} onConfirm={handleQuitConfirm} />}
-
-      {/* ─── NEW ─── Bulk assign modal */}
       {bulkAssignOpen && (
-        <BulkAssignModal
-          count={selectedIds.size}
-          scheduleOptions={scheduleOptions}
-          onClose={() => setBulkAssignOpen(false)}
-          onConfirm={handleBulkAssignConfirm}
-        />
+        <BulkAssignModal count={selectedIds.size} scheduleOptions={scheduleOptions} onClose={() => setBulkAssignOpen(false)} onConfirm={handleBulkAssignConfirm} />
       )}
-
-      {/* ─── NEW ─── Floating bottom action bar */}
       {canBulkAssign && selectedIds.size > 0 && activeTab === "active" && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full px-4 py-2.5 flex items-center gap-3 animate-in slide-in-from-bottom-4 fade-in duration-200">
           <span className="text-xs font-medium text-foreground">
             {selectedIds.size} seleccionado{selectedIds.size !== 1 ? "s" : ""}
           </span>
           <div className="w-px h-4 bg-border" />
-          <button
-            onClick={() => setBulkAssignOpen(true)}
-            disabled={bulkAssigning}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
+          <button onClick={() => setBulkAssignOpen(true)} disabled={bulkAssigning}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50">
             {bulkAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserPlus size={12} />}
             Asignar horario
           </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={() => setSelectedIds(new Set())} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             Limpiar
           </button>
         </div>
