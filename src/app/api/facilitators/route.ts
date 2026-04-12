@@ -19,11 +19,9 @@ export async function GET() {
       },
     },
   });
-
   if (!course) {
     return NextResponse.json({ groups: [], schedules: [] });
   }
-
   const groups = course.schedules.map((schedule) => ({
     id: schedule.id,
     label: schedule.label,
@@ -33,6 +31,9 @@ export async function GET() {
       birthday: table.facilitator.birthday
         ? table.facilitator.birthday.toISOString().split("T")[0]
         : null,
+      phone: table.facilitator.phone ?? null,
+      bio: table.facilitator.bio ?? null,
+      hasUser: !!table.facilitator.userId,
       tableId: table.id,
       tableName: table.name,
       studentCount: table._count.students,
@@ -40,11 +41,9 @@ export async function GET() {
       scheduleLabel: schedule.label,
     })),
   }));
-
   const schedules = course.schedules.map((s) => ({
     id: s.id,
     label: s.label,
   }));
-
   return NextResponse.json({ groups, schedules });
 }

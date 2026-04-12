@@ -104,6 +104,8 @@ model Facilitator {
   id          String     @id @default(cuid())
   name        String
   birthday    DateTime?
+  phone       String?
+  bio         String?
   userId      String?    @unique
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

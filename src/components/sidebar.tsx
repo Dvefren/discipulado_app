@@ -34,10 +34,20 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [facilitatorId, setFacilitatorId] = useState<string | null>(null);
   const { theme, toggleTheme } = useTheme();
 
   const role = (user.role || "FACILITATOR") as Role;
   const navItems = allNavItems.filter((item) => item.roles.includes(role));
+
+  useEffect(() => {
+    if (role === "FACILITATOR") {
+      fetch("/api/me/facilitator-id")
+        .then((r) => r.json())
+        .then((data) => setFacilitatorId(data.facilitatorId ?? null))
+        .catch(() => setFacilitatorId(null));
+    }
+  }, [role]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   useEffect(() => {
@@ -84,13 +94,31 @@ export function Sidebar({ user }: SidebarProps) {
         </button>
 
         <div className="flex items-center gap-2 px-3 py-2">
-          <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
-            {user.name?.charAt(0).toUpperCase() || "U"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-foreground truncate">{user.name}</p>
-            <p className="text-[11px] text-muted-foreground truncate">{roleLabels[role]}</p>
-          </div>
+          {facilitatorId ? (
+            <Link
+              href={`/dashboard/facilitators/${facilitatorId}`}
+              className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+              title="Ver mi perfil"
+            >
+              <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
+                {user.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-foreground truncate">{user.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{roleLabels[role]}</p>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400 text-[11px] font-medium shrink-0">
+                {user.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-foreground truncate">{user.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{roleLabels[role]}</p>
+              </div>
+            </div>
+          )}
           <button onClick={() => signOut({ callbackUrl: "/login" })} className="text-muted-foreground hover:text-foreground transition-colors" title="Cerrar sesión">
             <LogOut size={14} />
           </button>
