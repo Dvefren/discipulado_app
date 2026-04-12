@@ -19,6 +19,8 @@ interface ProfileData {
   createdAt: string;
   hasUser: boolean;
   user: { id: string; email: string; role: string; createdAt: string } | null;
+  currentCourseId: string | null;  // ← add
+  courses: { id: string; name: string; isActive: boolean }[];  // ← add
   tables: { id: string; name: string; scheduleLabel: string; studentCount: number }[];
   stats: { totalStudents: number; averageAttendance: number | null; totalClasses: number };
   students: {
@@ -56,6 +58,7 @@ export function FacilitatorProfileClient({
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   // Edit info form
   const [editing, setEditing] = useState(false);
@@ -75,10 +78,11 @@ export function FacilitatorProfileClient({
   const [creatingUser, setCreatingUser] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
 
-  async function loadProfile() {
+  async function loadProfile(courseIdOverride?: string) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/facilitators/${facilitatorId}`);
+      const params = courseIdOverride ? `?courseId=${courseIdOverride}` : "";
+      const res = await fetch(`/api/facilitators/${facilitatorId}${params}`);
       if (res.status === 403) {
         setError("No tienes permiso para ver este perfil.");
         return;
@@ -89,6 +93,7 @@ export function FacilitatorProfileClient({
       }
       const data = await res.json();
       setProfile(data);
+      setSelectedCourseId(data.currentCourseId);
       setEditForm({
         name: data.name,
         phone: data.phone ?? "",
@@ -98,6 +103,11 @@ export function FacilitatorProfileClient({
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleCourseChange(courseId: string) {
+    setSelectedCourseId(courseId);
+    loadProfile(courseId);
   }
 
   useEffect(() => { loadProfile(); }, [facilitatorId]);
@@ -254,6 +264,7 @@ export function FacilitatorProfileClient({
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Alumnos activos</p>
           <p className="text-2xl font-semibold text-foreground">{profile.stats.totalStudents}</p>
@@ -340,6 +351,14 @@ export function FacilitatorProfileClient({
           </div>
         )}
       </div>
+
+      {/* Empty state for courses where this facilitator wasn't active */}
+      {profile.tables.length === 0 && (
+        <div className="bg-card border border-border rounded-xl p-6 mb-4 text-center">
+          <p className="text-sm text-muted-foreground">No participó como facilitador en este curso.</p>
+        </div>
+      )}
+
 
       {/* Assigned tables */}
       {profile.tables.length > 0 && (

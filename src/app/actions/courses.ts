@@ -39,9 +39,9 @@ export async function createCourse(data: {
     { day: "SUNDAY" as const, time: "11:00", label: "Sunday 11:00 AM" },
     { day: "SUNDAY" as const, time: "13:00", label: "Sunday 1:00 PM" },
   ];
-
+  const createdSchedules = [];
   for (const s of scheduleData) {
-    await prisma.schedule.create({
+    const created = await prisma.schedule.create({
       data: {
         day: s.day,
         time: s.time,
@@ -49,11 +49,11 @@ export async function createCourse(data: {
         courseId: course.id,
       },
     });
+    createdSchedules.push({ id: created.id, label: created.label });
   }
-
   revalidatePath("/dashboard/courses");
   revalidatePath("/dashboard");
-  return { success: true };
+  return { success: true, courseId: course.id, schedules: createdSchedules };
 }
 
 export async function updateCourse(data: {
@@ -145,4 +145,67 @@ export async function deleteCourse(courseId: string) {
   revalidatePath("/dashboard/courses");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// Get facilitators from past courses with their original table assignments,
+// for the carry-over modal shown after creating a new course
+export async function getCarryOverCandidates() {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  // Find facilitators that have at least one table somewhere in the system,
+  // grouped by their most recent table assignment (so we know which schedule
+  // they used to be in).
+  const facilitators = await prisma.facilitator.findMany({
+    where: {
+      tables: { some: {} },
+    },
+    include: {
+      tables: {
+        include: {
+          schedule: { select: { label: true, courseId: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return facilitators.map((f) => ({
+    id: f.id,
+    name: f.name,
+    lastTableName: f.tables[0]?.name ?? "",
+    lastScheduleLabel: f.tables[0]?.schedule?.label ?? "",
+  }));
+}
+
+// Carry over selected facilitators into a new course's schedules.
+// For each selection, creates a new FacilitatorTable in the matching new schedule.
+export async function carryOverFacilitators(data: {
+  selections: Array<{
+    facilitatorId: string;
+    tableName: string;
+    targetScheduleId: string;
+  }>;
+}) {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  for (const sel of data.selections) {
+    await prisma.facilitatorTable.create({
+      data: {
+        name: sel.tableName,
+        facilitatorId: sel.facilitatorId,
+        scheduleId: sel.targetScheduleId,
+      },
+    });
+  }
+
+  revalidatePath("/dashboard/facilitators");
+  revalidatePath("/dashboard");
+  return { success: true, count: data.selections.length };
 }
