@@ -359,7 +359,6 @@ export function FacilitatorProfileClient({
         </div>
       )}
 
-
       {/* Assigned tables */}
       {profile.tables.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4 mb-4">
