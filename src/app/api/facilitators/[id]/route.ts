@@ -91,6 +91,7 @@ export async function GET(
   return NextResponse.json({
     id: facilitator.id,
     name: facilitator.name,
+    role: facilitator.user?.role ?? "FACILITATOR",
     birthday: facilitator.birthday?.toISOString().split("T")[0] ?? null,
     phone: facilitator.phone ?? null,
     bio: facilitator.bio ?? null,

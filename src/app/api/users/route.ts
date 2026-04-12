@@ -107,6 +107,24 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Auto-create or link a Facilitator record for leaders and secretaries
+  // so they get a profile page (same as facilitators do)
+  if (role === "SCHEDULE_LEADER" || role === "SECRETARY") {
+    const existing = await prisma.facilitator.findFirst({
+      where: { name, userId: null },
+    });
+    if (existing) {
+      await prisma.facilitator.update({
+        where: { id: existing.id },
+        data: { userId: user.id },
+      });
+    } else {
+      await prisma.facilitator.create({
+        data: { name, userId: user.id },
+      });
+    }
+  }
+
   if (role === "FACILITATOR" && facilitatorId) {
     await prisma.facilitator.update({
       where: { id: facilitatorId },
@@ -141,6 +159,7 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Keep the linked Facilitator name in sync (for leaders/secretaries with auto-created profiles)
   const data: Record<string, any> = {};
   if (name !== undefined) data.name = name;
   if (email !== undefined) data.email = email;
@@ -148,21 +167,58 @@ export async function PATCH(req: NextRequest) {
 
   const user = await prisma.user.update({ where: { id }, data });
 
-  // If role changed, clean up old role assignments and create new ones
-  if (role && role !== existingUser.role) {
-    // Remove old assignments
-    await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
-    await prisma.secretary.deleteMany({ where: { userId: id } });
-    // Unlink from facilitator
-    const linkedFacilitator = await prisma.facilitator.findUnique({ where: { userId: id } });
-    if (linkedFacilitator) {
+  // Keep the linked Facilitator name in sync (for leaders/secretaries with auto-created profiles)
+  if (name !== undefined) {
+    const linkedFac = await prisma.facilitator.findUnique({ where: { userId: id } });
+    if (linkedFac) {
       await prisma.facilitator.update({
-        where: { id: linkedFacilitator.id },
-        data: { userId: null },
+        where: { id: linkedFac.id },
+        data: { name },
       });
     }
+  }
 
-    // Create new assignment
+  // If role changed, clean up old role assignments and create new ones
+  if (role && role !== existingUser.role) {
+    // Remove old role assignments
+    await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
+    await prisma.secretary.deleteMany({ where: { userId: id } });
+
+    // Handle the existing Facilitator link based on what we're changing TO
+    const linkedFacilitator = await prisma.facilitator.findUnique({ where: { userId: id } });
+
+    if (role === "SCHEDULE_LEADER" || role === "SECRETARY") {
+      // New role still needs a facilitator profile
+      if (!linkedFacilitator) {
+        // Try to find an unlinked Facilitator with the same name first
+        const facName = name ?? existingUser.name;
+        const existing = await prisma.facilitator.findFirst({
+          where: { name: facName, userId: null },
+        });
+        if (existing) {
+          await prisma.facilitator.update({
+            where: { id: existing.id },
+            data: { userId: id },
+          });
+        } else {
+          await prisma.facilitator.create({
+            data: { name: facName, userId: id },
+          });
+        }
+      }
+      // If they already had one, leave it linked — they keep the same profile
+    } else {
+      // New role is ADMIN or FACILITATOR — unlink any auto-created leader/secretary facilitator
+      // (For role=FACILITATOR we'll relink to the chosen one below)
+      if (linkedFacilitator) {
+        await prisma.facilitator.update({
+          where: { id: linkedFacilitator.id },
+          data: { userId: null },
+        });
+      }
+    }
+
+    // Create new schedule assignments
     if (role === "SCHEDULE_LEADER" && scheduleId) {
       await prisma.scheduleLeader.create({
         data: { userId: id, scheduleId },
@@ -221,12 +277,21 @@ export async function DELETE(req: NextRequest) {
   await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
   await prisma.secretary.deleteMany({ where: { userId: id } });
 
-  const linkedFacilitator = await prisma.facilitator.findUnique({ where: { userId: id } });
+  const linkedFacilitator = await prisma.facilitator.findUnique({
+    where: { userId: id },
+    include: { tables: true },
+  });
   if (linkedFacilitator) {
-    await prisma.facilitator.update({
-      where: { id: linkedFacilitator.id },
-      data: { userId: null },
-    });
+    if (linkedFacilitator.tables.length === 0) {
+      // Orphan facilitator (auto-created for leader/secretary, no tables) — delete it
+      await prisma.facilitator.delete({ where: { id: linkedFacilitator.id } });
+    } else {
+      // Real facilitator with tables — just unlink the user, preserve the data
+      await prisma.facilitator.update({
+        where: { id: linkedFacilitator.id },
+        data: { userId: null },
+      });
+    }
   }
 
   await prisma.user.delete({ where: { id } });

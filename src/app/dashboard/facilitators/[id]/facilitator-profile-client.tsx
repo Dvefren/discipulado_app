@@ -12,6 +12,7 @@ import { t } from "@/lib/translate";
 interface ProfileData {
   id: string;
   name: string;
+  role: string;
   birthday: string | null;
   phone: string | null;
   bio: string | null;
@@ -33,6 +34,13 @@ interface ProfileData {
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
+
+const roleLabels: Record<string, string> = {
+  ADMIN: "Administrador",
+  SCHEDULE_LEADER: "Líder de horario",
+  SECRETARY: "Secretario(a)",
+  FACILITATOR: "Facilitador(a)",
+};
 
 const fmtLong = new Intl.DateTimeFormat("es-MX", { year: "numeric", month: "long", day: "numeric" });
 const fmtShort = new Intl.DateTimeFormat("es-MX", { year: "numeric", month: "short", day: "numeric" });
@@ -205,7 +213,7 @@ export function FacilitatorProfileClient({
           </div>
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-foreground truncate">{profile.name}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Facilitador(a)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{roleLabels[profile.role] ?? "Facilitador(a)"}</p>
             {profile.user && (
               <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                 <Mail size={11} /> {profile.user.email}
@@ -233,12 +241,12 @@ export function FacilitatorProfileClient({
               <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
                 Este facilitador no puede iniciar sesión en el sistema. Crea una cuenta para darle acceso.
               </p>
-              <button
-                onClick={() => setCreateUserOpen(true)}
-                className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              <Link
+                href="/dashboard/users"
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
               >
-                <UserPlus size={12} /> Crear cuenta de usuario
-              </button>
+                <UserPlus size={12} /> Ir a Usuarios
+              </Link>
             </div>
           </div>
         </div>

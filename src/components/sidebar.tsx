@@ -41,7 +41,8 @@ export function Sidebar({ user }: SidebarProps) {
   const navItems = allNavItems.filter((item) => item.roles.includes(role));
 
   useEffect(() => {
-    if (role === "FACILITATOR") {
+    // All non-admin roles get a clickable profile (admin uses the user list instead)
+    if (role !== "ADMIN") {
       fetch("/api/me/facilitator-id")
         .then((r) => r.json())
         .then((data) => setFacilitatorId(data.facilitatorId ?? null))

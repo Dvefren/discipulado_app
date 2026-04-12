@@ -10,13 +10,14 @@ export default async function FacilitatorsPage() {
   const role = (session.user as any).role;
 
   if (role !== "ADMIN") {
-    if (role === "FACILITATOR") {
-      const userId = (session.user as any).id;
-      const facilitator = await prisma.facilitator.findFirst({
-        where: { userId },
-        select: { id: true },
-      });
-      if (facilitator) redirect(`/dashboard/facilitators/${facilitator.id}`);
+    // All non-admin roles get redirected to their own profile if they have a Facilitator record
+    const userId = (session.user as any).id;
+    const facilitator = await prisma.facilitator.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    if (facilitator) {
+      redirect(`/dashboard/facilitators/${facilitator.id}`);
     }
     redirect("/dashboard");
   }
