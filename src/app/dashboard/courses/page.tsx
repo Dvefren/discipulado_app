@@ -226,11 +226,19 @@ export default function CoursesPage() {
   }
 
   async function handleSetActive(courseId: string) { await setActiveCourse(courseId); fetchData(); }
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
-    await deleteCourse(deleteTarget.id);
-    setDeleteTarget(null);
-    fetchData();
+    setDeleteError(null);
+    try {
+      await deleteCourse(deleteTarget.id);
+      setDeleteTarget(null);
+      setDeleteOpen(false);
+      fetchData();
+    } catch (err: any) {
+      setDeleteError(err.message || "Error al eliminar el curso");
+    }
   }
 
   if (loading) {
@@ -317,8 +325,20 @@ export default function CoursesPage() {
       )}
 
       <CourseForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleFormSubmit} initialData={editData} />
-      <DeleteConfirm open={deleteOpen} onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }} onConfirm={handleDeleteConfirm}
-        title="Eliminar curso" message={`¿Estás seguro de eliminar "${deleteTarget?.name}"? Todos los horarios, clases y registros de asistencia serán eliminados.`} />
+      <DeleteConfirm
+        open={deleteOpen}
+        onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }}
+        onConfirm={handleDeleteConfirm}
+        title="Eliminar curso permanentemente"
+        message={`Esta acción es irreversible. Todo el contenido del curso "${deleteTarget?.name}" será eliminado.`}
+        confirmText={deleteTarget?.name}
+        consequences={[
+          `${deleteTarget?.scheduleCount ?? 0} horarios`,
+          `${deleteTarget?.totalClasses ?? 0} clases con todos sus registros de asistencia`,
+          `${deleteTarget?.totalStudents ?? 0} alumnos con sus notas, relaciones familiares y datos de perfil`,
+          `Las asignaciones de mesa de los facilitadores en este curso (los facilitadores y sus perfiles permanecen intactos)`,
+        ]}
+      />
 
       {carryOverSchedules && (
         <CarryOverModal

@@ -113,37 +113,23 @@ export async function deleteCourse(courseId: string) {
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: {
-      schedules: {
-        include: {
-          tables: { include: { _count: { select: { students: true } } } },
-          _count: { select: { classes: true } },
-        },
-      },
-    },
+    select: { id: true, name: true, isActive: true },
   });
 
-  if (!course) throw new Error("Course not found.");
-
-  const totalStudents = course.schedules.reduce(
-    (sum, s) => sum + s.tables.reduce((ts, t) => ts + t._count.students, 0), 0
-  );
-
-  if (totalStudents > 0) {
-    throw new Error(
-      `Cannot delete: this course has ${totalStudents} students enrolled. Remove students first.`
-    );
-  }
-
+  if (!course) throw new Error("Curso no encontrado.");
   if (course.isActive) {
-    throw new Error("Cannot delete the active course. Set another course as active first.");
+    throw new Error("No puedes eliminar el curso activo. Activa otro curso primero.");
   }
 
-  // Cascade: schedules → classes → attendance, and tables
+  // Cascade deletes everything: schedules → classes → attendance,
+  // tables → students → notes/relationships/student-attendance.
+  // Facilitators are preserved (they can be reused in other courses).
   await prisma.course.delete({ where: { id: courseId } });
 
   revalidatePath("/dashboard/courses");
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/facilitators");
+  revalidatePath("/dashboard/students");
   return { success: true };
 }
 
