@@ -3,19 +3,53 @@ import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import {
   X, Plus, Phone, MapPin, Calendar, ChevronLeft, Pencil, UserMinus, UserPlus,
   Download, Camera, Trash2, Loader2, ChevronDown, ChevronUp, MessageSquare, Send,
-  HelpCircle, CheckSquare, Square, Users,
+  HelpCircle, CheckSquare, Square, Users, Mail, Briefcase, GraduationCap,
+  Home, Heart, Church, BookOpen, AlertCircle, User,
 } from "lucide-react";
 import { t } from "@/lib/translate";
+import { StudentFormFields, StudentFormState, emptyStudentForm, formToPayload, studentToForm } from "@/components/student-form-fields";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "PREVIEWED" | "RECOVERED";
 interface AttendanceRecord { id: string; status: string; classId: string; className: string; classDate: string; }
 interface StudentNote { id: string; content: string; authorName: string; authorRole: string; createdAt: string; }
 interface Student {
-  id: string; firstName: string; lastName: string; cellPhone: string | null;
-  neighborhood: string | null; birthdate: string | null;
-  facilitatorName: string; tableName: string; scheduleLabel: string; scheduleId: string;
-  tableId: string; createdAt: string; status: string;
-  quitDate: string | null; quitReason: string | null;
+  id: string;
+  firstName: string;
+  lastName: string;
+  birthdate: string | null;
+  gender: "MALE" | "FEMALE" | null;
+  maritalStatus: string | null;
+  isMother: boolean | null;
+  isFather: boolean | null;
+  email: string | null;
+  placeOfBirth: string | null;
+  street: string | null;
+  streetNumber: string | null;
+  neighborhood: string | null;
+  cellPhone: string | null;
+  landlinePhone: string | null;
+  educationLevel: string | null;
+  workplace: string | null;
+  livingSituation: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  acceptedChrist: boolean | null;
+  isBaptized: boolean | null;
+  baptismDate: string | null;
+  howArrivedToChurch: string | null;
+  coursePurpose: string | null;
+  prayerAddiction: string | null;
+  testimony: string | null;
+  enrollmentDate: string | null;
+  facilitatorName: string;
+  tableName: string;
+  scheduleLabel: string;
+  scheduleId: string;
+  tableId: string;
+  createdAt: string;
+  status: string;
+  quitDate: string | null;
+  quitReason: string | null;
   attendance: AttendanceRecord[];
 }
 interface ScheduleOption { id: string; label: string; tables: { id: string; name: string }[]; }
@@ -42,6 +76,196 @@ const statusMeta: Record<AttendanceStatus, { color: string; label: string; light
 const ATTENDED: AttendanceStatus[] = ["PRESENT", "PREVIEWED", "RECOVERED"];
 function isAttended(status: string) { return ATTENDED.includes(status as AttendanceStatus); }
 function getMeta(status: string) { return statusMeta[status as AttendanceStatus] ?? { color: "bg-gray-300", label: status, light: "bg-gray-100 text-gray-600" }; }
+
+// ─── Student Details Card ───────────────────────────────
+function Field({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-0.5">{label}</p>
+      <div className="flex items-start gap-1.5 text-sm text-foreground">
+        <Icon size={12} className="text-muted-foreground mt-0.5 shrink-0" />
+        <span className="truncate">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function BoolPill({ value }: { value: boolean | null }) {
+  if (value === true) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Sí</span>;
+  if (value === false) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">No</span>;
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-5">
+      <div className="h-px flex-1 bg-border" />
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function StudentDetailsCard({ student }: { student: Student }) {
+  const genderLabel = student.gender === "MALE" ? "Masculino" : student.gender === "FEMALE" ? "Femenino" : null;
+  const fullAddress = [student.street, student.streetNumber].filter(Boolean).join(" ");
+
+  // Count filled fields per section to decide whether to render a section at all
+  const hasDatos = student.birthdate || student.gender || student.maritalStatus || student.isMother !== null || student.isFather !== null || student.email || student.placeOfBirth || student.enrollmentDate;
+  const hasDomicilio = fullAddress || student.neighborhood || student.cellPhone || student.landlinePhone || student.educationLevel || student.workplace || student.livingSituation || student.emergencyContactName || student.emergencyContactPhone;
+  const hasIglesia = student.acceptedChrist !== null || student.isBaptized !== null || student.baptismDate || student.howArrivedToChurch || student.coursePurpose || student.prayerAddiction;
+  const hasTestimony = !!student.testimony;
+
+  if (!hasDatos && !hasDomicilio && !hasIglesia && !hasTestimony) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-4 mb-4">
+        <p className="text-sm text-muted-foreground text-center py-2">Sin información registrada.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 mb-4">
+      {/* ─── Datos personales ─── */}
+      {hasDatos && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            {student.birthdate && (
+              <Field icon={Calendar} label="Fecha de nacimiento" value={fmtLong.format(new Date(student.birthdate))} />
+            )}
+            {genderLabel && (
+              <Field icon={User} label="Sexo" value={genderLabel} />
+            )}
+            {student.maritalStatus && (
+              <Field icon={Heart} label="Estado civil" value={student.maritalStatus} />
+            )}
+            {student.placeOfBirth && (
+              <Field icon={MapPin} label="Lugar de nacimiento" value={student.placeOfBirth} />
+            )}
+            {student.isMother !== null && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">¿Es madre?</p>
+                <BoolPill value={student.isMother} />
+              </div>
+            )}
+            {student.isFather !== null && (
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">¿Es padre?</p>
+                <BoolPill value={student.isFather} />
+              </div>
+            )}
+            {student.email && (
+              <Field icon={Mail} label="Email" value={student.email} />
+            )}
+            {student.enrollmentDate && (
+              <Field icon={Calendar} label="Fecha de ingreso" value={fmtShort.format(new Date(student.enrollmentDate))} />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ─── Domicilio ─── */}
+      {hasDomicilio && (
+        <>
+          {hasDatos && <SectionDivider label="Domicilio" />}
+          {!hasDatos && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Domicilio</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            {fullAddress && (
+              <Field icon={Home} label="Calle y número" value={fullAddress} />
+            )}
+            {student.neighborhood && (
+              <Field icon={MapPin} label="Colonia" value={student.neighborhood} />
+            )}
+            {student.cellPhone && (
+              <Field icon={Phone} label="Celular" value={student.cellPhone} />
+            )}
+            {student.landlinePhone && (
+              <Field icon={Phone} label="Teléfono fijo" value={student.landlinePhone} />
+            )}
+            {student.educationLevel && (
+              <Field icon={GraduationCap} label="Escolaridad" value={student.educationLevel} />
+            )}
+            {student.workplace && (
+              <Field icon={Briefcase} label="Lugar de trabajo" value={student.workplace} />
+            )}
+            {student.livingSituation && (
+              <Field icon={Users} label="Vive con" value={student.livingSituation} />
+            )}
+            {(student.emergencyContactName || student.emergencyContactPhone) && (
+              <div className="sm:col-span-2 mt-1 p-3 rounded-lg bg-muted/40 border border-border/50">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                  <AlertCircle size={11} /> Contacto de emergencia
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                  {student.emergencyContactName && (
+                    <p className="text-sm text-foreground">{student.emergencyContactName}</p>
+                  )}
+                  {student.emergencyContactPhone && (
+                    <p className="text-sm text-foreground flex items-center gap-1.5">
+                      <Phone size={12} className="text-muted-foreground" />
+                      {student.emergencyContactPhone}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ─── Iglesia ─── */}
+      {hasIglesia && (
+        <>
+          {(hasDatos || hasDomicilio) && <SectionDivider label="Iglesia" />}
+          {!hasDatos && !hasDomicilio && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Iglesia</p>}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+              {student.acceptedChrist !== null && (
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Aceptó a Cristo</p>
+                  <BoolPill value={student.acceptedChrist} />
+                </div>
+              )}
+              {student.isBaptized !== null && (
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Bautizado</p>
+                  <div className="flex items-center gap-2">
+                    <BoolPill value={student.isBaptized} />
+                    {student.baptismDate && (
+                      <span className="text-xs text-muted-foreground">
+                        {fmtShort.format(new Date(student.baptismDate))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {student.howArrivedToChurch && (
+              <Field icon={Church} label="¿Cómo llegó a la iglesia?" value={student.howArrivedToChurch} />
+            )}
+            {student.coursePurpose && (
+              <Field icon={BookOpen} label="Propósito del curso" value={student.coursePurpose} />
+            )}
+            {student.prayerAddiction && (
+              <Field icon={Heart} label="Oración por" value={student.prayerAddiction} />
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ─── Testimonio ─── */}
+      {hasTestimony && (
+        <>
+          {(hasDatos || hasDomicilio || hasIglesia) && <SectionDivider label="Testimonio" />}
+          {!hasDatos && !hasDomicilio && !hasIglesia && <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Testimonio</p>}
+          <div className="p-3 rounded-lg bg-muted/40 border border-border/50">
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{student.testimony}</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 const roleLabels: Record<string, string> = {
   ADMIN: "Admin", SCHEDULE_LEADER: "Líder", SECRETARY: "Secretario(a)", FACILITATOR: "Facilitador(a)",
@@ -372,106 +596,100 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
   const [tbd, setTbd] = useState(student.tableId === "");
   const [selectedScheduleId, setSelectedScheduleId] = useState(student.scheduleId);
   const [selectedTableId, setSelectedTableId] = useState(student.tableId);
-  const [form, setForm] = useState({ firstName: student.firstName, lastName: student.lastName, cellPhone: student.cellPhone ?? "", neighborhood: student.neighborhood ?? "", birthdate: student.birthdate ? student.birthdate.split("T")[0] : "" });
+  const [form, setForm] = useState<StudentFormState>(studentToForm(student));
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
-  function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
 
   async function handleSave() {
-    if (!form.firstName || !form.lastName) return;
+    if (!form.firstName.trim() || !form.lastName.trim()) return;
     if (!tbd && !selectedTableId) return;
     setSaving(true);
     try {
+      const payload = formToPayload(form);
       const res = await fetch("/api/students", {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: student.id, ...form,
-          cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
-          birthdate: form.birthdate || null,
+          id: student.id,
+          ...payload,
           tableId: tbd ? null : selectedTableId,
         }),
       });
       if (res.ok) {
-        if (tbd) {
-          onUpdated({
-            ...student, ...form,
-            cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
-            birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
-            scheduleId: "", tableId: "",
-            scheduleLabel: UNASSIGNED_LABEL, tableName: UNASSIGNED_LABEL, facilitatorName: UNASSIGNED_LABEL,
-          });
-        } else {
-          const sel = scheduleOptions.find((s) => s.id === selectedScheduleId);
-          const tbl = availableTables.find((tt) => tt.id === selectedTableId);
-          onUpdated({
-            ...student, ...form,
-            cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
-            birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
-            scheduleId: selectedScheduleId, tableId: selectedTableId,
-            scheduleLabel: sel?.label ?? student.scheduleLabel,
-            tableName: tbl?.name ?? student.tableName,
-            facilitatorName: tbl?.name ?? student.facilitatorName,
-          });
-        }
+        const sel = scheduleOptions.find((s) => s.id === selectedScheduleId);
+        const tbl = availableTables.find((tt) => tt.id === selectedTableId);
+        onUpdated({
+          ...student,
+          firstName: payload.firstName,
+          lastName: payload.lastName,
+          cellPhone: payload.cellPhone,
+          neighborhood: payload.neighborhood,
+          birthdate: payload.birthdate ? new Date(payload.birthdate).toISOString() : null,
+          scheduleId: tbd ? "" : selectedScheduleId,
+          tableId: tbd ? "" : selectedTableId,
+          scheduleLabel: tbd ? UNASSIGNED_LABEL : (sel?.label ?? student.scheduleLabel),
+          tableName: tbd ? UNASSIGNED_LABEL : (tbl?.name ?? student.tableName),
+          facilitatorName: tbd ? UNASSIGNED_LABEL : (tbl?.name ?? student.facilitatorName),
+        });
         onClose();
       }
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 pb-0"><h2 className="text-sm font-semibold text-foreground">Editar alumno</h2><button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button></div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Nombre *</label><input type="text" value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label><input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.cellPhone} onChange={(e) => setField("cellPhone", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          </div>
-          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.neighborhood} onChange={(e) => setField("neighborhood", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 pb-3 sticky top-0 bg-card border-b border-border/50">
+          <h2 className="text-sm font-semibold text-foreground">Editar alumno</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
+        </div>
+        <div className="p-6">
+          <StudentFormFields form={form} setForm={setForm} />
 
-          <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
-            <div className="flex items-center gap-2">
-              <HelpCircle size={14} className="text-muted-foreground" />
-              <span className="text-xs text-foreground">Por definir</span>
+          {/* Assignment */}
+          <div className="mt-5 pt-5 border-t border-border/50">
+            <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2 mb-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle size={14} className="text-muted-foreground" />
+                <span className="text-xs text-foreground">Por definir</span>
+              </div>
+              <button type="button"
+                onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}>
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
+              </button>
             </div>
-            <button type="button"
-              onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}>
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
-            </button>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
-              <select value={selectedScheduleId}
-                onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
-                disabled={tbd}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Seleccionar horario</option>
-                {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
-              <select value={selectedTableId}
-                onChange={(e) => setSelectedTableId(e.target.value)}
-                disabled={tbd || !selectedScheduleId}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Seleccionar facilitador</option>
-                {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
+                <select value={selectedScheduleId}
+                  onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+                  disabled={tbd}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                  <option value="">Seleccionar horario</option>
+                  {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
+                <select value={selectedTableId}
+                  onChange={(e) => setSelectedTableId(e.target.value)}
+                  disabled={tbd || !selectedScheduleId}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                  <option value="">Seleccionar facilitador</option>
+                  {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-5">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
             <button onClick={handleSave}
-              disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving}
+              disabled={!form.firstName.trim() || !form.lastName.trim() || (!tbd && !selectedTableId) || saving}
               className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
               {saving ? "Guardando..." : "Guardar cambios"}
             </button>
@@ -562,15 +780,7 @@ function StudentProfile({ student, scheduleOptions, role, userId, facilitatorTab
       </div>
       <NotesTimeline studentId={student.id} canWrite={canWriteNotes} />
       <RelationshipsSection studentId={student.id} canEdit={canEdit} />
-      <div className="bg-card border border-border rounded-xl p-4 mb-4">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Información personal</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {student.cellPhone && <div><p className="text-xs text-muted-foreground mb-0.5">Teléfono</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Phone size={12} className="text-muted-foreground" />{student.cellPhone}</div></div>}
-          {student.birthdate && <div><p className="text-xs text-muted-foreground mb-0.5">Fecha de nacimiento</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Calendar size={12} className="text-muted-foreground" />{fmtLong.format(new Date(student.birthdate))}</div></div>}
-          {student.neighborhood && <div className="sm:col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Dirección</p><div className="flex items-center gap-1.5 text-sm text-foreground"><MapPin size={12} className="text-muted-foreground" />{student.neighborhood}</div></div>}
-          {!student.cellPhone && !student.birthdate && !student.neighborhood && <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>}
-        </div>
-      </div>
+      <StudentDetailsCard student={student} />
       {editOpen && <EditStudentModal student={student} scheduleOptions={scheduleOptions} onClose={() => setEditOpen(false)} onUpdated={(u) => { onUpdated(u); setEditOpen(false); }} />}
     </div>
   );
@@ -578,111 +788,135 @@ function StudentProfile({ student, scheduleOptions, role, userId, facilitatorTab
 
 // ─── Add Student Modal ────────────────────────────────────
 function AddStudentModal({ scheduleOptions, onClose, onAdded }: { scheduleOptions: ScheduleOption[]; onClose: () => void; onAdded: (s: Student) => void }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tbd, setTbd] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedTableId, setSelectedTableId] = useState("");
-  const [form, setForm] = useState({ firstName: "", lastName: "", cellPhone: "", neighborhood: "", birthdate: "" });
+  const [form, setForm] = useState<StudentFormState>(emptyStudentForm);
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
-  function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
 
-  async function handleScan(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return; setScanning(true);
+  async function handleScan(file: File) {
+    setScanning(true);
     try {
-      const fd = new FormData(); fd.append("image", file);
+      const fd = new FormData();
+      fd.append("image", file);
       const res = await fetch("/api/ocr/student", { method: "POST", body: fd });
       if (res.ok) {
         const data = await res.json();
-        setForm((f) => ({ ...f, firstName: data.firstName ?? f.firstName, lastName: data.lastName ?? f.lastName, cellPhone: data.phone ?? f.cellPhone, neighborhood: data.address ?? f.neighborhood, birthdate: data.birthdate ?? f.birthdate }));
+        // Phase 2c will rewrite the OCR parser. For now, fill whatever matches.
+        setForm((f) => ({
+          ...f,
+          firstName: data.firstName ?? f.firstName,
+          lastName: data.lastName ?? f.lastName,
+          birthdate: data.birthdate ?? f.birthdate,
+          maritalStatus: data.maritalStatus ?? f.maritalStatus,
+          isMother: data.isMother ?? f.isMother,
+          isFather: data.isFather ?? f.isFather,
+          email: data.email ?? f.email,
+          placeOfBirth: data.placeOfBirth ?? f.placeOfBirth,
+          street: data.street ?? f.street,
+          streetNumber: data.streetNumber ?? f.streetNumber,
+          neighborhood: data.neighborhood ?? f.neighborhood,
+          cellPhone: data.cellPhone ?? f.cellPhone,
+          landlinePhone: data.landlinePhone ?? f.landlinePhone,
+          educationLevel: data.educationLevel ?? f.educationLevel,
+          workplace: data.workplace ?? f.workplace,
+          livingSituation: data.livingSituation ?? f.livingSituation,
+          emergencyContactName: data.emergencyContactName ?? f.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone ?? f.emergencyContactPhone,
+          howArrivedToChurch: data.howArrivedToChurch ?? f.howArrivedToChurch,
+          coursePurpose: data.coursePurpose ?? f.coursePurpose,
+          prayerAddiction: data.prayerAddiction ?? f.prayerAddiction,
+          testimony: data.testimony ?? f.testimony,
+          enrollmentDate: data.enrollmentDate ?? f.enrollmentDate,
+        }));
       }
-    } finally { setScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function handleSave() {
-    if (!form.firstName || !form.lastName) return;
+    if (!form.firstName.trim() || !form.lastName.trim()) return;
     if (!tbd && !selectedTableId) return;
     setSaving(true);
     try {
+      const payload = formToPayload(form);
       const res = await fetch("/api/students", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form, birthdate: form.birthdate || null,
+          ...payload,
           tableId: tbd ? null : selectedTableId,
         }),
       });
       if (res.ok) window.location.reload();
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 pb-0">
+      <div className="relative z-10 bg-card border border-border text-foreground rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 pb-3 sticky top-0 bg-card border-b border-border/50 z-10">
           <h2 className="text-sm font-semibold text-foreground">Agregar alumno</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={() => fileInputRef.current?.click()} disabled={scanning} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50" title="Escanear formulario">
-              {scanning ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}{scanning ? "Escaneando..." : "Escanear"}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScan} />
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
-          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={16} /></button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Nombre *</label><input type="text" value={form.firstName} onChange={(e) => setField("firstName", e.target.value)} placeholder="María" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label><input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="García" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.cellPhone} onChange={(e) => setField("cellPhone", e.target.value)} placeholder="+52 868 000 0000" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
-          </div>
-          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.neighborhood} onChange={(e) => setField("neighborhood", e.target.value)} placeholder="Calle, Colonia, Ciudad" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+        <div className="p-6">
+          <StudentFormFields form={form} setForm={setForm} onScan={handleScan} scanning={scanning} showScan />
 
-          <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
-            <div className="flex items-center gap-2">
-              <HelpCircle size={14} className="text-muted-foreground" />
-              <div className="flex flex-col">
-                <span className="text-xs font-medium text-foreground">Por definir</span>
-                <span className="text-[10px] text-muted-foreground">Asignar horario y facilitador después</span>
+          {/* Assignment */}
+          <div className="mt-5 pt-5 border-t border-border/50">
+            <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2 mb-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle size={14} className="text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-foreground">Por definir</span>
+                  <span className="text-[10px] text-muted-foreground">Asignar horario y facilitador después</span>
+                </div>
+              </div>
+              <button type="button"
+                onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
+                aria-pressed={tbd}>
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
+                <select value={selectedScheduleId}
+                  onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
+                  disabled={tbd}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                  <option value="">Seleccionar horario</option>
+                  {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
+                <select value={selectedTableId}
+                  onChange={(e) => setSelectedTableId(e.target.value)}
+                  disabled={tbd || !selectedScheduleId}
+                  className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+                  <option value="">Seleccionar facilitador</option>
+                  {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
+                </select>
               </div>
             </div>
-            <button type="button"
-              onClick={() => { setTbd((v) => !v); setSelectedScheduleId(""); setSelectedTableId(""); }}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${tbd ? "bg-primary" : "bg-muted"}`}
-              aria-pressed={tbd}>
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-background transition-transform ${tbd ? "translate-x-5" : "translate-x-1"}`} />
-            </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Horario {!tbd && "*"}</label>
-              <select value={selectedScheduleId}
-                onChange={(e) => { setSelectedScheduleId(e.target.value); setSelectedTableId(""); }}
-                disabled={tbd}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Seleccionar horario</option>
-                {scheduleOptions.map((s) => <option key={s.id} value={s.id}>{t(s.label)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Facilitador {!tbd && "*"}</label>
-              <select value={selectedTableId}
-                onChange={(e) => setSelectedTableId(e.target.value)}
-                disabled={tbd || !selectedScheduleId}
-                className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
-                <option value="">Seleccionar facilitador</option>
-                {availableTables.map((tt) => <option key={tt.id} value={tt.id}>{tt.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-5">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-            <button onClick={handleSave} disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving} className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{saving ? "Guardando..." : "Agregar alumno"}</button>
+            <button onClick={handleSave}
+              disabled={!form.firstName.trim() || !form.lastName.trim() || (!tbd && !selectedTableId) || saving}
+              className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+              {saving ? "Guardando..." : "Agregar alumno"}
+            </button>
           </div>
         </div>
       </div>

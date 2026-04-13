@@ -11,10 +11,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "OCR not configured" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "OCR not configured" }, { status: 500 });
   }
 
   try {
@@ -60,12 +57,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log raw OCR text for debugging
     console.log("─── OCR RAW TEXT ───");
     console.log(fullText);
     console.log("────────────────────");
 
-    const result = parseRegistrationForm(fullText);
+    const result = parseAlianzaForm(fullText);
 
     console.log("─── PARSED RESULT ───");
     console.log(JSON.stringify(result, null, 2));
@@ -80,243 +76,471 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-// ─── LABEL-BASED PARSER ──────────────────────────────────
-// Strategy: find known labels, then grab the VALUE on the next line(s).
-// This avoids grabbing section headers like "Datos Personales" as names.
+// ─── PARSER ──────────────────────────────────────────────
+// Tuned for the Alianza Cristiana Reynosa registration form.
 
 interface ParsedForm {
   firstName?: string;
   lastName?: string;
-  phone?: string;
   birthdate?: string;
-  address?: string;
-  churchAnswers?: Record<string, string>;
+  maritalStatus?: string;
+  isMother?: boolean;
+  isFather?: boolean;
+  email?: string;
+  placeOfBirth?: string;
+  street?: string;
+  streetNumber?: string;
+  neighborhood?: string;
+  cellPhone?: string;
+  landlinePhone?: string;
+  educationLevel?: string;
+  workplace?: string;
+  livingSituation?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  howArrivedToChurch?: string;
+  coursePurpose?: string;
+  prayerAddiction?: string;
+  testimony?: string;
+  enrollmentDate?: string;
 }
 
-function parseRegistrationForm(rawText: string): ParsedForm {
-  const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
+// Labels that mark sections or other fields — used to know where a value ends
+// and what lines should be skipped when searching for a value.
+const KNOWN_LABELS = [
+  /^alianza cristiana/i,
+  /^solicitud de inscripcion/i,
+  /^el comienzo de una nueva/i,
+  /^facilitador:?$/i,
+  /^fecha de ingreso:?$/i,
+  /^datos$/i,
+  /^nombre completo:?/i,
+  /^edad$/i,
+  /^fecha de nacimiento:?$/i,
+  /^estado civil$/i,
+  /^sexo/i,
+  /^mascino/i,
+  /^masculino/i,
+  /^femenino/i,
+  /^es mam[aá]\??/i,
+  /^es pap[aá]\??/i,
+  /^e-?mail:?$/i,
+  /^domicilio$/i,
+  /^calle$/i,
+  /^numero$/i,
+  /^colonia$/i,
+  /^lugar de nacimiento:?$/i,
+  /^num\.? de tel\.?celular$/i,
+  /^num\.?telefono$/i,
+  /^nivel de escolaridad$/i,
+  /^lugar de trabajo$/i,
+  /^vive solo o con familiares\??/i,
+  /^nombre completo de su contacto/i,
+  /^de emergencia:?$/i,
+  /^_?num\.? de telefono:?/i,
+  /^iglesia$/i,
+  /^ha aceptado a cristo/i,
+  /^ha sido bautizado/i,
+  /^c[oó]mo llego a la iglesia/i,
+  /^como llego a la iglesia/i,
+  /^cu[aá]l es el proposito/i,
+  /^este curso\s*\??$/i,
+  /^cu[aá]l es la adiccion/i,
+  /^la que podemos orar/i,
+  /^testimonio:?$/i,
+  /^seleccione el horario/i,
+  /^miercoles/i,
+  /^domingo/i,
+  /^marque/i,
+  /^de modo que si alguno/i,
+  /^viejas pasaron/i,
+  /^qsoarchi$/i,
+];
+
+function isLabel(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  return KNOWN_LABELS.some((r) => r.test(trimmed));
+}
+
+// Strip a label prefix from a line if present.
+function stripLabel(line: string, labelPatterns: RegExp[]): string {
+  for (const p of labelPatterns) {
+    const m = line.match(p);
+    if (m) return line.slice(m[0].length).replace(/^[:\s]+/, "").trim();
+  }
+  return line.trim();
+}
+
+// Find a value for a label. Searches:
+// 1. Same line after the label (e.g. "ES PAPÁ? no" → "no")
+// 2. Next non-label lines forward
+//
+// If `skipLabels` is true, we walk through intermediate labels looking for
+// the next non-label line. This handles cases where Vision reorders lines
+// spatially, putting related labels between a label and its value.
+function findValue(
+  lines: string[],
+  labelPatterns: RegExp[],
+  opts: {
+    multiline?: boolean;
+    maxLines?: number;
+    searchRange?: number; // how many lines forward to scan
+  } = {}
+): string {
+  const { multiline = false, maxLines = 1, searchRange = 1 } = opts;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lower = line.toLowerCase();
+
+    for (const pattern of labelPatterns) {
+      if (pattern.test(lower)) {
+        // Try same-line value first
+        const sameLineValue = stripLabel(line, labelPatterns);
+        if (sameLineValue && !isLabel(sameLineValue)) {
+          return sameLineValue;
+        }
+
+        // Walk forward up to `searchRange` lines
+        const collected: string[] = [];
+        let scanned = 0;
+        for (let j = i + 1; j < lines.length && scanned < searchRange; j++) {
+          const next = lines[j].trim();
+          if (!next) continue;
+          scanned++;
+          if (isLabel(next)) continue; // SKIP intermediate labels
+          collected.push(next);
+          if (collected.length >= maxLines) break;
+          if (!multiline) break;
+        }
+        if (collected.length > 0) return collected.join(" ").trim();
+      }
+    }
+  }
+  return "";
+}
+
+// Find the nearest email anywhere in the text (more reliable than label proximity).
+function findEmail(lines: string[]): string {
+  for (const line of lines) {
+    const m = line.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    if (m) return m[0];
+  }
+  return "";
+}
+
+// Find a value that appears NEAR a label but possibly before it in OCR order.
+// Scans a window around the label's position.
+function findValueNearby(
+  lines: string[],
+  labelPatterns: RegExp[],
+  windowBefore: number = 3,
+  windowAfter: number = 3
+): string {
+  for (let i = 0; i < lines.length; i++) {
+    const lower = lines[i].toLowerCase();
+    if (labelPatterns.some((p) => p.test(lower))) {
+      // Look backward first (Vision sometimes puts answer above question)
+      for (let j = Math.max(0, i - windowBefore); j < i; j++) {
+        const candidate = lines[j].trim();
+        if (candidate && !isLabel(candidate)) return candidate;
+      }
+      // Then forward
+      for (let j = i + 1; j <= Math.min(lines.length - 1, i + windowAfter); j++) {
+        const candidate = lines[j].trim();
+        if (candidate && !isLabel(candidate)) return candidate;
+      }
+    }
+  }
+  return "";
+}
+
+function parseBool(value: string): boolean | undefined {
+  if (!value) return undefined;
+  const lower = value.toLowerCase().trim();
+  if (/^s[ií]$/i.test(lower) || lower === "si") return true;
+  if (lower === "no") return false;
+  return undefined;
+}
+
+// ── Date parser — Alianza form uses DD/MM/YYYY or "12 Abril 2026"
+function parseDate(text: string): string {
+  if (!text) return "";
+
+  const slash = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  if (slash) {
+    let day = parseInt(slash[1]);
+    let month = parseInt(slash[2]);
+    let year = parseInt(slash[3]);
+    if (year < 100) year += year > 50 ? 1900 : 2000;
+    if (month > 12 && day <= 12) [day, month] = [month, day];
+    if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+    return `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+  }
+
+  const monthMap: Record<string, number> = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+    julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
+  };
+  const named = text.match(/(\d{1,2})\s+([a-záéíóú]+)\s+(\d{4})/i);
+  if (named) {
+    const day = parseInt(named[1]);
+    const monthName = named[2].toLowerCase();
+    const year = parseInt(named[3]);
+    const month = monthMap[monthName];
+    if (month && day >= 1 && day <= 31) {
+      return `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    }
+  }
+  return "";
+}
+
+function extractPhone(value: string): string {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length >= 10) return digits.slice(-10);
+  return "";
+}
+
+function splitName(full: string): { firstName: string; lastName: string } {
+  const cleaned = full
+    .replace(/^completo:?\s*/i, "")
+    .replace(/^nombre\s*/i, "")
+    .trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  if (parts.length === 2) return { firstName: parts[0], lastName: parts[1] };
+  if (parts.length === 3) {
+    return { firstName: parts[0], lastName: `${parts[1]} ${parts[2]}` };
+  }
+  return {
+    firstName: `${parts[0]} ${parts[1]}`,
+    lastName: parts.slice(2).join(" "),
+  };
+}
+
+function parseAlianzaForm(rawText: string): ParsedForm {
+  const lines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   const result: ParsedForm = {};
 
-  // ── Helper: find a label line and return the value on the NEXT line
-  function getValueAfterLabel(labelPatterns: RegExp[]): string {
-    for (let i = 0; i < lines.length - 1; i++) {
-      const lower = lines[i].toLowerCase();
-      for (const pattern of labelPatterns) {
-        if (pattern.test(lower)) {
-          // The value is on the next line
-          const value = lines[i + 1]?.trim() ?? "";
-          // Make sure the next line isn't another label or section header
-          if (value && !isKnownLabel(value)) {
-            return value;
-          }
+  // ── Full name
+  const fullName = findValue(lines, [/^nombre completo:?/i]);
+  if (fullName) {
+    const { firstName, lastName } = splitName(fullName);
+    if (firstName) result.firstName = firstName;
+    if (lastName) result.lastName = lastName;
+  }
+
+  // ── Enrollment date
+  const enrollmentRaw = findValue(lines, [/^fecha de ingreso:?$/i], { searchRange: 3 });
+  if (enrollmentRaw) {
+    const d = parseDate(enrollmentRaw);
+    if (d) result.enrollmentDate = d;
+  }
+
+  // ── Birthdate
+  const birthRaw = findValue(lines, [/^fecha de nacimiento:?$/i], { searchRange: 3 });
+  if (birthRaw) {
+    const d = parseDate(birthRaw);
+    if (d) result.birthdate = d;
+  }
+
+  // ── Marital status
+  const marital = findValue(lines, [/^estado civil$/i], { searchRange: 3 });
+  if (marital) result.maritalStatus = marital;
+
+  // ── Es mamá? / Es papá? — value often on same line after the ?
+  // Expand regex to allow matches anywhere the label starts
+  const momLine = lines.find((l) => /^es mam[aá]/i.test(l));
+  if (momLine) {
+    // Extract whatever comes after "ES MAMA?" or "ES MAMA? " on the same line
+    const m = momLine.match(/^es mam[aá]\??\s*(.*)$/i);
+    const sameLine = m?.[1]?.trim();
+    if (sameLine && !isLabel(sameLine)) {
+      const b = parseBool(sameLine);
+      if (b !== undefined) result.isMother = b;
+    } else {
+      // Look at next non-label line
+      const idx = lines.indexOf(momLine);
+      for (let j = idx + 1; j < Math.min(idx + 3, lines.length); j++) {
+        if (!isLabel(lines[j])) {
+          const b = parseBool(lines[j]);
+          if (b !== undefined) { result.isMother = b; break; }
         }
       }
     }
-    return "";
   }
 
-  // ── Helper: find value on SAME line after a label (for "Label: Value" format)
-  function getValueSameLine(labelPatterns: RegExp[]): string {
-    for (const line of lines) {
-      for (const pattern of labelPatterns) {
-        const match = line.match(pattern);
-        if (match && match[1]?.trim()) {
-          return match[1].trim();
+  const dadLine = lines.find((l) => /^es pap[aá]/i.test(l));
+  if (dadLine) {
+    const m = dadLine.match(/^es pap[aá]\??\s*(.*)$/i);
+    const sameLine = m?.[1]?.trim();
+    if (sameLine && !isLabel(sameLine)) {
+      const b = parseBool(sameLine);
+      if (b !== undefined) result.isFather = b;
+    } else {
+      const idx = lines.indexOf(dadLine);
+      for (let j = idx + 1; j < Math.min(idx + 3, lines.length); j++) {
+        if (!isLabel(lines[j])) {
+          const b = parseBool(lines[j]);
+          if (b !== undefined) { result.isFather = b; break; }
         }
       }
     }
-    return "";
   }
 
-  // ── Known labels/headers to skip when looking for values
-  const SKIP_PATTERNS = [
-    /^datos\s+personales$/i,
-    /^preguntas?\s+de\s+la\s+iglesia$/i,
-    /^church\s+questions?$/i,
-    /^ficha\s+de\s+registro$/i,
-    /^curso\s+de\s+discipulado/i,
-    /^nombre/i,
-    /^apellido/i,
-    /^tel[eé]fono/i,
-    /^fecha\s+de\s+nac/i,
-    /^domicilio/i,
-    /^direcci[oó]n/i,
-    /^iglesia\s/i,
-    /^(¿|quien|es\s+tu|has\s+sido|asistes|cu[aá]nto|tienes|c[oó]mo)/i,
-  ];
+  // ── Email — just find anywhere in the text
+  const email = findEmail(lines);
+  if (email) result.email = email;
 
-  function isKnownLabel(text: string): boolean {
-    const lower = text.toLowerCase().trim();
-    return SKIP_PATTERNS.some((p) => p.test(lower));
+  // ── Street / Number / Colonia
+  const calle = findValue(lines, [/^calle$/i]);
+  if (calle) result.street = calle;
+
+  const numero = findValue(lines, [/^numero$/i]);
+  if (numero && /^\d+/.test(numero)) result.streetNumber = numero;
+
+  const colonia = findValue(lines, [/^colonia$/i]);
+  if (colonia) result.neighborhood = colonia;
+
+  // ── Place of birth — search wider range (Vision reorders columns)
+  // Reject anything that looks like a phone number or starts with a digit.
+  const pob = findValue(lines, [/^lugar de nacimiento:?$/i], { searchRange: 6 });
+  if (pob && !/\d{4,}/.test(pob) && !/^bop/i.test(pob)) {
+    result.placeOfBirth = pob;
   }
 
-  // ── 1. First Name
-  const firstName =
-    getValueAfterLabel([/^nombre\(?s?\)?$/i, /^nombre\(?s?\)?:/i, /^first\s*name/i]) ||
-    getValueSameLine([/^nombre\(?s?\)?[:\s]\s*(.+)/i, /^first\s*name[:\s]\s*(.+)/i]);
-  if (firstName) result.firstName = firstName;
+  // ── Cell phone — look wider, extract best-effort
+  const cellRaw = findValue(lines, [/^num\.? de tel\.?celular$/i], { searchRange: 3 });
+  const cell = extractPhone(cellRaw);
+  if (cell) result.cellPhone = cell;
 
-  // ── 2. Last Name
-  const lastName =
-    getValueAfterLabel([/^apellido[s]?$/i, /^apellido[s]?:/i, /^last\s*name/i]) ||
-    getValueSameLine([/^apellido[s]?[:\s]\s*(.+)/i, /^last\s*name[:\s]\s*(.+)/i]);
-  if (lastName) result.lastName = lastName;
+  // ── Landline
+  const landRaw = findValue(lines, [/^num\.?telefono$/i], { searchRange: 3 });
+  const land = extractPhone(landRaw);
+  if (land) result.landlinePhone = land;
 
-  // ── 3. If name wasn't found via labels, try to find "Nombre(s) Apellidos" on same line
-  // but ONLY if it looks like actual name data (not a header)
-  if (!result.firstName && !result.lastName) {
-    // Look for the line after "Nombre" label that has the full name
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (/^nombre/i.test(lines[i].toLowerCase())) {
-        const nextLine = lines[i + 1]?.trim();
-        if (nextLine && !isKnownLabel(nextLine)) {
-          const parts = nextLine.split(/\s+/);
-          if (parts.length >= 2) {
-            result.firstName = parts[0];
-            result.lastName = parts.slice(1).join(" ");
-          }
+  // ── Education level
+  const edu = findValue(lines, [/^nivel de escolaridad$/i], { searchRange: 3 });
+  if (edu) result.educationLevel = edu;
+
+  // ── Workplace
+  const work = findValue(lines, [/^lugar de trabajo$/i], { searchRange: 3 });
+  if (work) result.workplace = work;
+
+  // ── Living situation
+  const living = findValue(lines, [/^vive solo o con familiares\??/i], { searchRange: 3 });
+  if (living) result.livingSituation = living;
+
+  // ── Emergency contact name
+  // The label often spans two lines: "NOMBRE COMPLETO DE SU CONTACTO" + "DE EMERGENCIA:"
+  // The actual name (if filled) comes after both. Skip intermediate labels.
+  const emergencyName = findValue(
+    lines,
+    [/^nombre completo de su contacto/i],
+    { searchRange: 4 }
+  );
+  // Only accept if it's not itself a label fragment
+  if (emergencyName && !/^de emergencia/i.test(emergencyName)) {
+    result.emergencyContactName = emergencyName;
+  }
+
+  // ── Emergency phone — find the LAST 10-digit number in the text
+  // (first is usually cell phone or landline)
+  let emergencyPhone = "";
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const digits = lines[i].replace(/\D/g, "");
+    if (digits.length >= 10) {
+      emergencyPhone = digits.slice(-10);
+      break;
+    }
+  }
+  if (emergencyPhone && emergencyPhone !== result.cellPhone && emergencyPhone !== result.landlinePhone) {
+    result.emergencyContactPhone = emergencyPhone;
+  }
+
+  // ── Church section
+  // The OCR output for this form reads:
+  //   HA ACEPTADO A CRISTO...?           (no answer — checkbox)
+  //   HA SIDO BAUTIZADO...?              (no answer — checkbox)
+  //   <howArrived answer>                ← before its question due to spatial order
+  //   COMO LLEGO A LA IGLESIA?
+  //   CUÁL ES EL PROPOSITO DE TOMAR ESTE CURSO ?
+  //   <purpose answer>                   ← after the question
+  //   CUÁL ES LA ADICCION POR...?
+  //   <addiction answer, possibly multi-line>
+  //   TESTIMONIO:
+  //
+  // Strategy: find each label's index, then grab the nearest non-label line
+  // BEFORE howArrived, AFTER purpose, AFTER addiction.
+
+  const findLabelIndex = (patterns: RegExp[]) => {
+    for (let i = 0; i < lines.length; i++) {
+      if (patterns.some((p) => p.test(lines[i]))) return i;
+    }
+    return -1;
+  };
+
+  const howArrivedIdx = findLabelIndex([/^c[oó]mo llego a la iglesia/i, /^como llego a la iglesia/i]);
+  const purposeIdx = findLabelIndex([/^cu[aá]l es el proposito/i]);
+  const addictionIdx = findLabelIndex([/^cu[aá]l es la adiccion/i]);
+  const testimonyIdx = findLabelIndex([/^testimonio:?$/i]);
+
+  // howArrived: scan backward from its label, grab first non-label line.
+  if (howArrivedIdx !== -1) {
+    for (let j = howArrivedIdx - 1; j >= Math.max(0, howArrivedIdx - 4); j--) {
+      const candidate = lines[j].trim();
+      if (candidate && !isLabel(candidate)) {
+        result.howArrivedToChurch = candidate;
+        break;
+      }
+    }
+  }
+
+  // coursePurpose: scan forward from its label, skipping labels,
+  // stop before addictionIdx.
+  if (purposeIdx !== -1) {
+    const stopAt = addictionIdx !== -1 ? addictionIdx : lines.length;
+    for (let j = purposeIdx + 1; j < stopAt; j++) {
+      const candidate = lines[j].trim();
+      if (candidate && !isLabel(candidate)) {
+        // Guard: don't reuse howArrivedToChurch's answer
+        if (candidate !== result.howArrivedToChurch) {
+          result.coursePurpose = candidate;
           break;
         }
       }
     }
   }
 
-  // ── 4. Phone — look for 10-digit number, but prioritize lines near "Teléfono" label
-  const phoneLabelValue = getValueAfterLabel([/^tel[eé]fono$/i, /^phone$/i]);
-  if (phoneLabelValue) {
-    const phoneMatch = phoneLabelValue.match(/\d{10}/);
-    result.phone = phoneMatch ? phoneMatch[0] : phoneLabelValue.replace(/\D/g, "").slice(0, 10);
-  }
-  // Fallback: find any 10-digit number in the text
-  if (!result.phone) {
-    for (const line of lines) {
-      const m = line.match(/\b(\d{10})\b/);
-      if (m) {
-        result.phone = m[1];
-        break;
-      }
+  // prayerAddiction: scan forward from its label, multi-line until testimonyIdx.
+  if (addictionIdx !== -1) {
+    const stopAt = testimonyIdx !== -1 ? testimonyIdx : lines.length;
+    const collected: string[] = [];
+    for (let j = addictionIdx + 1; j < stopAt; j++) {
+      const candidate = lines[j].trim();
+      if (!candidate) continue;
+      if (isLabel(candidate)) continue;
+      if (candidate === result.coursePurpose) continue;
+      collected.push(candidate);
+    }
+    if (collected.length > 0) {
+      result.prayerAddiction = collected.join(" ");
     }
   }
 
-  // ── 5. Birthdate — look near "Fecha de nacimiento" label
-  const birthdateValue =
-    getValueAfterLabel([
-      /^fecha\s+de\s+nac/i,
-      /^nacimiento$/i,
-      /^birthdate$/i,
-      /^fecha\s*nac/i,
-    ]) ||
-    getValueSameLine([
-      /fecha\s+de\s+nacimiento[:\s]\s*(.+)/i,
-      /birthdate[:\s]\s*(.+)/i,
-    ]);
-
-  if (birthdateValue) {
-    result.birthdate = parseDate(birthdateValue);
-  }
-  // Fallback: find any date pattern near a "fecha" or "nac" keyword
-  if (!result.birthdate) {
-    for (let i = 0; i < lines.length; i++) {
-      const lower = lines[i].toLowerCase();
-      if (lower.includes("nac") || lower.includes("fecha")) {
-        // Check this line and the next for a date
-        for (let j = i; j <= Math.min(i + 1, lines.length - 1); j++) {
-          const dateMatch = lines[j].match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-          if (dateMatch) {
-            result.birthdate = parseDate(lines[j]);
-            break;
-          }
-        }
-        if (result.birthdate) break;
-      }
-    }
-  }
-
-  // ── 6. Address — look near "Domicilio" or "Dirección" label
-  const address =
-    getValueAfterLabel([
-      /^domicilio\s*(completo)?$/i,
-      /^direcci[oó]n\s*(completa)?$/i,
-      /^address$/i,
-    ]) ||
-    getValueSameLine([
-      /^domicilio\s*(?:completo)?[:\s]\s*(.+)/i,
-      /^direcci[oó]n\s*(?:completa)?[:\s]\s*(.+)/i,
-    ]);
-
-  if (address && address.toLowerCase() !== "completo" && address.toLowerCase() !== "completa") {
-    result.address = address;
-  }
-  // Fallback: look for lines containing typical address keywords
-  if (!result.address) {
-    for (const line of lines) {
-      const lower = line.toLowerCase();
-      // Must contain address-like content, not just the label
-      if (
-        (lower.includes("calle") || lower.includes("col.") || lower.includes("colonia")) &&
-        !lower.startsWith("domicilio") &&
-        !lower.startsWith("direcci") &&
-        line.length > 15
-      ) {
-        result.address = line;
-        break;
-      }
-    }
-  }
-
-  // ── 7. Preguntas de la Iglesia — match known question patterns
-  const churchQuestions: [RegExp, string][] = [
-    [/qui[eé]n\s+te\s+invit[oó]/i, "¿Quién te invitó al curso?"],
-    [/primera\s+vez\s+en\s+la\s+iglesia/i, "¿Es tu primera vez en la iglesia?"],
-    [/sido\s+bautizad/i, "¿Has sido bautizado(a)?"],
-    [/asistes\s+regularmente/i, "¿Asistes regularmente a alguna iglesia?"],
-    [/cu[aá]nto\s+tiempo\s+llevas/i, "¿Cuánto tiempo llevas asistiendo a la iglesia?"],
-    [/petici[oó]n\s+de\s+oraci[oó]n/i, "¿Tienes alguna petición de oración?"],
-    [/c[oó]mo\s+te\s+enteraste/i, "¿Cómo te enteraste del curso de discipulado?"],
-  ];
-
-  const answers: Record<string, string> = {};
-  for (let i = 0; i < lines.length; i++) {
-    for (const [pattern, questionKey] of churchQuestions) {
-      if (pattern.test(lines[i])) {
-        // Grab the next line as the answer
-        const answer = lines[i + 1]?.trim();
-        if (answer && !isKnownLabel(answer) && answer !== "Answer...") {
-          answers[questionKey] = answer;
-        }
-        break;
-      }
-    }
-  }
-  if (Object.keys(answers).length > 0) {
-    result.churchAnswers = answers;
-  }
+  // ── Testimonio (multi-line, up to 5 lines)
+  const testimony = findValue(
+    lines,
+    [/^testimonio:?$/i],
+    { multiline: true, maxLines: 5, searchRange: 6 }
+  );
+  if (testimony) result.testimony = testimony;
 
   return result;
-}
-
-// ── Date parser (DD/MM/YYYY or MM/DD/YYYY) → YYYY-MM-DD
-function parseDate(text: string): string {
-  const match = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
-  if (!match) return "";
-
-  let a = parseInt(match[1]);
-  let b = parseInt(match[2]);
-  let year = parseInt(match[3]);
-
-  if (year < 100) year += year > 50 ? 1900 : 2000;
-
-  // In Mexico, dates are DD/MM/YYYY
-  let day = a;
-  let month = b;
-
-  // If month > 12, it's probably MM/DD/YYYY (US format)
-  if (month > 12 && day <= 12) {
-    [day, month] = [month, day];
-  }
-
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-
-  return `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 }
