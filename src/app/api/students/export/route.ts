@@ -50,20 +50,7 @@ export async function GET(request: NextRequest) {
   const translateLabel = (label: string) =>
     label.replace("Wednesday", "Miércoles").replace("Sunday", "Domingo");
 
-  // ── Collect all profile question keys ───────────────────
-  const profileKeys = new Set<string>();
-  for (const schedule of course.schedules) {
-    for (const table of schedule.tables) {
-      for (const student of table.students) {
-        if (student.profileNotes && typeof student.profileNotes === "object") {
-          for (const key of Object.keys(student.profileNotes as Record<string, any>)) {
-            profileKeys.add(key);
-          }
-        }
-      }
-    }
-  }
-  const sortedProfileKeys = [...profileKeys].sort();
+  const sortedProfileKeys: string[] = [];
 
   // ── Build workbook ──────────────────────────────────────
   const workbook = new ExcelJS.Workbook();
@@ -104,14 +91,13 @@ export async function GET(request: NextRequest) {
     students: Array<{
       firstName: string;
       lastName: string;
-      phone: string | null;
-      address: string | null;
+      cellPhone: string | null;
+      neighborhood: string | null;
       birthdate: Date | null;
       scheduleLabel: string;
       facilitatorName: string;
       tableName: string;
       attendance: any[];
-      profileNotes: any;
       status: string;
     }>
   ) {
@@ -142,23 +128,18 @@ export async function GET(request: NextRequest) {
     // Data rows
     for (const s of students) {
       const pct = computePercent(s.attendance);
-      const profileValues = sortedProfileKeys.map((k) => {
-        const notes = s.profileNotes as Record<string, any> | null;
-        return notes && notes[k] !== undefined ? String(notes[k]) : "";
-      });
 
       const row = sheet.addRow([
         s.firstName,
         s.lastName,
-        s.phone || "",
+        s.cellPhone || "",
         s.birthdate ? new Date(s.birthdate).toLocaleDateString("es-MX") : "",
-        s.address || "",
+        s.neighborhood || "",
         translateLabel(s.scheduleLabel),
         s.facilitatorName,
         s.tableName,
-        pct / 100, // store as decimal so % format works
+        pct / 100,
         s.status === "QUIT" ? "Baja" : "Activo",
-        ...profileValues,
       ]);
 
       row.eachCell((cell) => {

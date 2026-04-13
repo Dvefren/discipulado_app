@@ -9,7 +9,6 @@ export default async function StudentProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
   const student = await prisma.student.findUnique({
     where: { id },
     include: {
@@ -27,30 +26,15 @@ export default async function StudentProfilePage({
       },
     },
   });
-
   if (!student) return notFound();
 
-  // Fetch active profile questions
-  let questions: any[] = [];
-  try {
-    questions = await prisma.profileQuestion.findMany({
-      where: { isActive: true },
-      orderBy: { order: "asc" },
-    });
-  } catch {
-    // ProfileQuestion table might not exist yet
-    questions = [];
-  }
-
-  // Serialize dates for client component
   const serializedStudent = {
     id: student.id,
     firstName: student.firstName,
     lastName: student.lastName,
-    phone: student.phone,
-    address: student.address,
+    cellPhone: student.cellPhone,
+    neighborhood: student.neighborhood,
     birthdate: student.birthdate?.toISOString() || null,
-    profileNotes: (student.profileNotes as Record<string, string>) || {},
     createdAt: student.createdAt.toISOString(),
     schedule: student.table?.schedule.label ?? "Por definir",
     tableName: student.table?.name ?? "Por definir",
@@ -65,13 +49,6 @@ export default async function StudentProfilePage({
     })),
   };
 
-  const serializedQuestions = questions.map((q) => ({
-    id: q.id,
-    question: q.question,
-    type: q.type,
-    options: q.options,
-  }));
-
   return (
     <div>
       <Link
@@ -83,11 +60,7 @@ export default async function StudentProfilePage({
         </svg>
         Back to students
       </Link>
-
-      <StudentProfileClient
-        student={serializedStudent}
-        questions={serializedQuestions}
-      />
+      <StudentProfileClient student={serializedStudent} />
     </div>
   );
 }

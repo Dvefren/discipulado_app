@@ -42,6 +42,10 @@ enum StudentStatus {
   ACTIVE
   QUIT
 }
+enum Gender {
+  MALE
+  FEMALE
+}
 // ─── AUTH & USERS ───────────────────────────────────────
 model User {
   id            String    @id @default(cuid())
@@ -141,20 +145,53 @@ model FacilitatorTable {
 }
 model Student {
   id            String     @id @default(cuid())
-  firstName     String
-  lastName      String
-  birthdate     DateTime?
-  phone         String?
-  address       String?
-  profileNotes  Json?      // Flexible field for church-related questions
+
+  // ─── Datos personales ───
+  firstName            String
+  lastName             String
+  birthdate            DateTime?
+  gender               Gender?
+  maritalStatus        String?
+  isMother             Boolean?
+  isFather             Boolean?
+  email                String?
+  placeOfBirth         String?
+
+  // ─── Domicilio ───
+  street               String?
+  streetNumber         String?
+  neighborhood         String?
+  cellPhone            String?
+  landlinePhone        String?
+  educationLevel       String?
+  workplace            String?
+  livingSituation      String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // ─── Iglesia ───
+  acceptedChrist       Boolean?
+  isBaptized           Boolean?
+  baptismDate          DateTime?
+  howArrivedToChurch   String?
+  coursePurpose        String?
+  prayerAddiction      String?
+  testimony            String?
+
+  // ─── Metadata ───
+  enrollmentDate       DateTime?
+
   tableId       String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  table         FacilitatorTable? @relation(fields: [tableId], references: [id], onDelete: Cascade)  
+
+  table         FacilitatorTable? @relation(fields: [tableId], references: [id], onDelete: Cascade)
   attendance    Attendance[]
+
   status        StudentStatus @default(ACTIVE)
   quitDate      DateTime?
   quitReason    String?
+
   notes       StudentNote[]
   relationsA  StudentRelationship[] @relation("RelationA")
   relationsB  StudentRelationship[] @relation("RelationB")
@@ -197,17 +234,6 @@ model Attendance {
   class             Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
   altSchedule       Schedule?        @relation(fields: [altScheduleId], references: [id])
   @@unique([studentId, classId])
-}
-// ── Cam Scanner ───────────────────────────────────────
-model ProfileQuestion {
-  id        String   @id @default(cuid())
-  question  String
-  type      String   @default("text")  // "text", "select", "boolean"
-  options   Json?                       // For select type: ["Sí", "No"]
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 // ─── CALENDAR ───────────────────────────────────────────
 model CalendarEvent {

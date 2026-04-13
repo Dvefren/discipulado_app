@@ -31,16 +31,14 @@ async function getFacilitatorTableIds(userId: string): Promise<string[]> {
   return tables.map((t) => t.id);
 }
 
-// Serializer for students that belong to a table (the normal case)
 function serializeStudent(student: any, table: any, schedule: any) {
   return {
     id: student.id,
     firstName: student.firstName,
     lastName: student.lastName,
-    phone: student.phone ?? null,
-    address: student.address ?? null,
+    cellPhone: student.cellPhone ?? null,
+    neighborhood: student.neighborhood ?? null,
     birthdate: student.birthdate?.toISOString() ?? null,
-    profileNotes: (student.profileNotes ?? {}) as Record<string, string>,
     facilitatorName: table.facilitator.name,
     tableName: table.name,
     scheduleLabel: schedule.label,
@@ -60,16 +58,14 @@ function serializeStudent(student: any, table: any, schedule: any) {
   };
 }
 
-// Serializer for "Por definir" students (no table yet)
 function serializeUnassignedStudent(student: any) {
   return {
     id: student.id,
     firstName: student.firstName,
     lastName: student.lastName,
-    phone: student.phone ?? null,
-    address: student.address ?? null,
+    cellPhone: student.cellPhone ?? null,
+    neighborhood: student.neighborhood ?? null,
     birthdate: student.birthdate?.toISOString() ?? null,
-    profileNotes: (student.profileNotes ?? {}) as Record<string, string>,
     facilitatorName: "Por definir",
     tableName: "Por definir",
     scheduleLabel: "Por definir",
@@ -97,11 +93,9 @@ export default async function StudentsPage() {
   const userScheduleId = await getUserScheduleId(userId, role);
   const facilitatorTableIds = role === "FACILITATOR" ? await getFacilitatorTableIds(userId) : [];
 
-  // Only ADMIN sees unassigned students (they exist outside any schedule,
-  // so schedule-scoped roles shouldn't see them anyway)
-const canSeeUnassigned = true;
+  const canSeeUnassigned = true;
 
-  const [courseData, profileQuestions, unassignedRaw] = await Promise.all([
+  const [courseData, unassignedRaw] = await Promise.all([
     prisma.course.findFirst({
       where: { isActive: true },
       include: {
@@ -120,7 +114,6 @@ const canSeeUnassigned = true;
         },
       },
     }),
-    prisma.profileQuestion.findMany({ where: { isActive: true }, orderBy: { order: "asc" } }),
     canSeeUnassigned
       ? prisma.student.findMany({
           where: { tableId: null },
@@ -148,15 +141,12 @@ const canSeeUnassigned = true;
     }
   }
 
-  // Merge unassigned students into the appropriate bucket
   for (const student of unassignedRaw) {
     const serialized = serializeUnassignedStudent(student);
     if (student.status === "QUIT") quitStudents.push(serialized);
     else activeStudents.push(serialized);
   }
 
-  // scheduleOptions drives the Add Student / Bulk Assign modals.
-  // ADMIN sees all schedules; other roles only see their own.
   const scheduleOptions = visibleSchedules.map((s) => ({
     id: s.id,
     label: s.label,
@@ -168,10 +158,6 @@ const canSeeUnassigned = true;
       students={activeStudents}
       quitStudents={quitStudents}
       scheduleOptions={scheduleOptions}
-      profileQuestions={profileQuestions.map((q) => ({
-        id: q.id, question: q.question, type: q.type,
-        options: (q.options ?? null) as string[] | null,
-      }))}
       role={role}
       userId={userId}
       facilitatorTableIds={facilitatorTableIds}

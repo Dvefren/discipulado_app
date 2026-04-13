@@ -11,18 +11,17 @@ type AttendanceStatus = "PRESENT" | "ABSENT" | "PREVIEWED" | "RECOVERED";
 interface AttendanceRecord { id: string; status: string; classId: string; className: string; classDate: string; }
 interface StudentNote { id: string; content: string; authorName: string; authorRole: string; createdAt: string; }
 interface Student {
-  id: string; firstName: string; lastName: string; phone: string | null;
-  address: string | null; birthdate: string | null; profileNotes: Record<string, string>;
+  id: string; firstName: string; lastName: string; cellPhone: string | null;
+  neighborhood: string | null; birthdate: string | null;
   facilitatorName: string; tableName: string; scheduleLabel: string; scheduleId: string;
   tableId: string; createdAt: string; status: string;
   quitDate: string | null; quitReason: string | null;
   attendance: AttendanceRecord[];
 }
-interface ProfileQuestion { id: string; question: string; type: string; options: string[] | null; }
 interface ScheduleOption { id: string; label: string; tables: { id: string; name: string }[]; }
 interface Props {
   students: Student[]; quitStudents: Student[];
-  scheduleOptions: ScheduleOption[]; profileQuestions: ProfileQuestion[];
+  scheduleOptions: ScheduleOption[];
   role: string; userId: string; facilitatorTableIds: string[];
 }
 
@@ -373,7 +372,7 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
   const [tbd, setTbd] = useState(student.tableId === "");
   const [selectedScheduleId, setSelectedScheduleId] = useState(student.scheduleId);
   const [selectedTableId, setSelectedTableId] = useState(student.tableId);
-  const [form, setForm] = useState({ firstName: student.firstName, lastName: student.lastName, phone: student.phone ?? "", address: student.address ?? "", birthdate: student.birthdate ? student.birthdate.split("T")[0] : "" });
+  const [form, setForm] = useState({ firstName: student.firstName, lastName: student.lastName, cellPhone: student.cellPhone ?? "", neighborhood: student.neighborhood ?? "", birthdate: student.birthdate ? student.birthdate.split("T")[0] : "" });
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
   function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
 
@@ -386,7 +385,7 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: student.id, ...form,
-          phone: form.phone || null, address: form.address || null,
+          cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
           birthdate: form.birthdate || null,
           tableId: tbd ? null : selectedTableId,
         }),
@@ -395,7 +394,7 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
         if (tbd) {
           onUpdated({
             ...student, ...form,
-            phone: form.phone || null, address: form.address || null,
+            cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
             birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
             scheduleId: "", tableId: "",
             scheduleLabel: UNASSIGNED_LABEL, tableName: UNASSIGNED_LABEL, facilitatorName: UNASSIGNED_LABEL,
@@ -405,7 +404,7 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
           const tbl = availableTables.find((tt) => tt.id === selectedTableId);
           onUpdated({
             ...student, ...form,
-            phone: form.phone || null, address: form.address || null,
+            cellPhone: form.cellPhone || null, neighborhood: form.neighborhood || null,
             birthdate: form.birthdate ? new Date(form.birthdate).toISOString() : null,
             scheduleId: selectedScheduleId, tableId: selectedTableId,
             scheduleLabel: sel?.label ?? student.scheduleLabel,
@@ -429,10 +428,10 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label><input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.cellPhone} onChange={(e) => setField("cellPhone", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
-          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.neighborhood} onChange={(e) => setField("neighborhood", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
 
           <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
@@ -484,8 +483,8 @@ function EditStudentModal({ student, scheduleOptions, onClose, onUpdated }: { st
 }
 
 // ─── Student profile ─────────────────────────────────────
-function StudentProfile({ student, profileQuestions, scheduleOptions, role, userId, facilitatorTableIds, onBack, onUpdated, onQuit }: {
-  student: Student; profileQuestions: ProfileQuestion[]; scheduleOptions: ScheduleOption[];
+function StudentProfile({ student, scheduleOptions, role, userId, facilitatorTableIds, onBack, onUpdated, onQuit }: {
+  student: Student; scheduleOptions: ScheduleOption[];
   role: string; userId: string; facilitatorTableIds: string[];
   onBack: () => void; onUpdated: (updated: Student) => void; onQuit: (student: Student) => void;
 }) {
@@ -497,19 +496,9 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
   const effective = present + preview + recovered;
   const pct = total > 0 ? Math.round((effective / total) * 100) : 0;
   const [showList, setShowList] = useState(false);
-  const [notes, setNotes] = useState<Record<string, string>>(student.profileNotes ?? {});
-  const [savingNotes, setSavingNotes] = useState(false);
-  const [savedNotes, setSavedNotes] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const canEdit = role === "ADMIN" || role === "SECRETARY";
   const canWriteNotes = role === "ADMIN" || role === "SECRETARY" || (role === "FACILITATOR" && facilitatorTableIds.includes(student.tableId));
-
-  async function saveChurchNotes() {
-    setSavingNotes(true);
-    await fetch("/api/students", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: student.id, profileNotes: notes }) });
-    setSavingNotes(false); setSavedNotes(true); setTimeout(() => setSavedNotes(false), 2000);
-    onUpdated({ ...student, profileNotes: notes });
-  }
 
   const enrolledDate = fmtShort.format(new Date(student.createdAt));
   const isUnassigned = student.tableId === "";
@@ -576,43 +565,26 @@ function StudentProfile({ student, profileQuestions, scheduleOptions, role, user
       <div className="bg-card border border-border rounded-xl p-4 mb-4">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Información personal</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {student.phone && <div><p className="text-xs text-muted-foreground mb-0.5">Teléfono</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Phone size={12} className="text-muted-foreground" />{student.phone}</div></div>}
+          {student.cellPhone && <div><p className="text-xs text-muted-foreground mb-0.5">Teléfono</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Phone size={12} className="text-muted-foreground" />{student.cellPhone}</div></div>}
           {student.birthdate && <div><p className="text-xs text-muted-foreground mb-0.5">Fecha de nacimiento</p><div className="flex items-center gap-1.5 text-sm text-foreground"><Calendar size={12} className="text-muted-foreground" />{fmtLong.format(new Date(student.birthdate))}</div></div>}
-          {student.address && <div className="sm:col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Dirección</p><div className="flex items-center gap-1.5 text-sm text-foreground"><MapPin size={12} className="text-muted-foreground" />{student.address}</div></div>}
-          {!student.phone && !student.birthdate && !student.address && <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>}
+          {student.neighborhood && <div className="sm:col-span-2"><p className="text-xs text-muted-foreground mb-0.5">Dirección</p><div className="flex items-center gap-1.5 text-sm text-foreground"><MapPin size={12} className="text-muted-foreground" />{student.neighborhood}</div></div>}
+          {!student.cellPhone && !student.birthdate && !student.neighborhood && <p className="text-sm text-muted-foreground col-span-2">Sin información personal registrada.</p>}
         </div>
       </div>
-      {profileQuestions.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preguntas de la iglesia</h3>
-            <button onClick={saveChurchNotes} disabled={savingNotes} className="px-3 py-1.5 rounded-lg text-xs bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{savingNotes ? "Guardando..." : savedNotes ? "Guardado ✓" : "Guardar respuestas"}</button>
-          </div>
-          <div className="space-y-4">{profileQuestions.map((q) => (
-            <div key={q.id}><p className="text-sm text-foreground mb-1.5">{q.question}</p>
-              {q.type === "boolean" || (q.options && q.options.length === 2) ? (
-                <div className="flex gap-2">{(q.options ?? ["Sí", "No"]).map((opt) => (<button key={opt} onClick={() => setNotes((n) => ({ ...n, [q.id]: opt }))} className={`px-4 py-1.5 rounded-lg text-xs border transition-colors ${notes[q.id] === opt ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>{opt}</button>))}</div>
-              ) : q.type === "select" && q.options ? (
-                <select value={notes[q.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"><option value="">Seleccionar...</option>{q.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select>
-              ) : (<input type="text" value={notes[q.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Escribe tu respuesta..." />)}
-            </div>))}</div>
-        </div>
-      )}
       {editOpen && <EditStudentModal student={student} scheduleOptions={scheduleOptions} onClose={() => setEditOpen(false)} onUpdated={(u) => { onUpdated(u); setEditOpen(false); }} />}
     </div>
   );
 }
 
 // ─── Add Student Modal ────────────────────────────────────
-function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }: { scheduleOptions: ScheduleOption[]; profileQuestions: ProfileQuestion[]; onClose: () => void; onAdded: (s: Student) => void }) {
+function AddStudentModal({ scheduleOptions, onClose, onAdded }: { scheduleOptions: ScheduleOption[]; onClose: () => void; onAdded: (s: Student) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tbd, setTbd] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
   const [selectedTableId, setSelectedTableId] = useState("");
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", address: "", birthdate: "" });
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [form, setForm] = useState({ firstName: "", lastName: "", cellPhone: "", neighborhood: "", birthdate: "" });
   const availableTables = scheduleOptions.find((s) => s.id === selectedScheduleId)?.tables ?? [];
   function setField(key: keyof typeof form, value: string) { setForm((f) => ({ ...f, [key]: value })); }
 
@@ -623,12 +595,7 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
       const res = await fetch("/api/ocr/student", { method: "POST", body: fd });
       if (res.ok) {
         const data = await res.json();
-        setForm((f) => ({ ...f, firstName: data.firstName ?? f.firstName, lastName: data.lastName ?? f.lastName, phone: data.phone ?? f.phone, address: data.address ?? f.address, birthdate: data.birthdate ?? f.birthdate }));
-        if (data.churchAnswers) {
-          const mapped: Record<string, string> = {};
-          for (const q of profileQuestions) { if (data.churchAnswers[q.question]) mapped[q.id] = data.churchAnswers[q.question]; }
-          if (Object.keys(mapped).length > 0) setNotes((prev) => ({ ...prev, ...mapped }));
-        }
+        setForm((f) => ({ ...f, firstName: data.firstName ?? f.firstName, lastName: data.lastName ?? f.lastName, cellPhone: data.phone ?? f.cellPhone, neighborhood: data.address ?? f.neighborhood, birthdate: data.birthdate ?? f.birthdate }));
       }
     } finally { setScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
   }
@@ -643,7 +610,6 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
         body: JSON.stringify({
           ...form, birthdate: form.birthdate || null,
           tableId: tbd ? null : selectedTableId,
-          profileNotes: notes,
         }),
       });
       if (res.ok) window.location.reload();
@@ -670,10 +636,10 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Apellido *</label><input type="text" value={form.lastName} onChange={(e) => setField("lastName", e.target.value)} placeholder="García" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.phone} onChange={(e) => setField("phone", e.target.value)} placeholder="+52 868 000 0000" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+            <div><label className="block text-xs font-medium text-muted-foreground mb-1">Teléfono</label><input type="tel" value={form.cellPhone} onChange={(e) => setField("cellPhone", e.target.value)} placeholder="+52 868 000 0000" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
             <div><label className="block text-xs font-medium text-muted-foreground mb-1">Fecha de nacimiento</label><input type="date" value={form.birthdate} onChange={(e) => setField("birthdate", e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
           </div>
-          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.address} onChange={(e) => setField("address", e.target.value)} placeholder="Calle, Colonia, Ciudad" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
+          <div><label className="block text-xs font-medium text-muted-foreground mb-1">Dirección</label><input type="text" value={form.neighborhood} onChange={(e) => setField("neighborhood", e.target.value)} placeholder="Calle, Colonia, Ciudad" className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" /></div>
 
           <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
@@ -714,17 +680,6 @@ function AddStudentModal({ scheduleOptions, profileQuestions, onClose, onAdded }
             </div>
           </div>
 
-          {profileQuestions.length > 0 && (
-            <div className="border-t border-border pt-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Preguntas de la iglesia</p>
-              <div className="space-y-3">{profileQuestions.map((q) => (
-                <div key={q.id}><p className="text-sm text-foreground mb-1.5">{q.question}</p>
-                  {q.type === "boolean" || (q.options && q.options.length === 2) ? (
-                    <div className="flex gap-2">{(q.options ?? ["Sí", "No"]).map((opt) => (<button key={opt} onClick={() => setNotes((n) => ({ ...n, [q.id]: opt }))} className={`px-4 py-1.5 rounded-lg text-xs border transition-colors ${notes[q.id] === opt ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>{opt}</button>))}</div>
-                  ) : (<input type="text" value={notes[q.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [q.id]: e.target.value }))} className="w-full px-3 py-2 rounded-lg text-sm border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Respuesta..." />)}
-                </div>))}</div>
-            </div>
-          )}
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 px-3 py-2 rounded-lg text-sm border border-border text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
             <button onClick={handleSave} disabled={!form.firstName || !form.lastName || (!tbd && !selectedTableId) || saving} className="flex-1 px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity disabled:opacity-50">{saving ? "Guardando..." : "Agregar alumno"}</button>
@@ -890,7 +845,7 @@ const StudentRow = memo(function StudentRow({
 });
 
 // ─── Main list ───────────────────────────────────────────
-export function StudentsClient({ students: initialStudents, quitStudents: initialQuit, scheduleOptions, profileQuestions, role, userId, facilitatorTableIds }: Props) {
+export function StudentsClient({ students: initialStudents, quitStudents: initialQuit, scheduleOptions, role, userId, facilitatorTableIds }: Props) {
   const [students, setStudents] = useState(initialStudents);
   const [quitStudents, setQuitStudents] = useState(initialQuit);
   const [activeTab, setActiveTab] = useState<"active" | "bajas">("active");
@@ -1057,7 +1012,7 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
     return (
       <div>
         <h1 className="text-lg font-medium text-foreground mb-5">Alumnos</h1>
-        <StudentProfile student={selectedStudent} profileQuestions={profileQuestions} scheduleOptions={scheduleOptions} role={role} userId={userId} facilitatorTableIds={facilitatorTableIds}
+        <StudentProfile student={selectedStudent} scheduleOptions={scheduleOptions} role={role} userId={userId} facilitatorTableIds={facilitatorTableIds}
           onBack={() => setSelectedStudent(null)}
           onUpdated={(updated) => { setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s)); setSelectedStudent(updated); }}
           onQuit={(s) => setQuitModalStudent(s)} />
@@ -1154,7 +1109,7 @@ export function StudentsClient({ students: initialStudents, quitStudents: initia
         </div>);
       })()}
 
-      {modalOpen && <AddStudentModal scheduleOptions={scheduleOptions} profileQuestions={profileQuestions} onClose={() => setModalOpen(false)} onAdded={(s) => { setStudents((prev) => [...prev, s]); setModalOpen(false); }} />}
+      {modalOpen && <AddStudentModal scheduleOptions={scheduleOptions} onClose={() => setModalOpen(false)} onAdded={(s) => { setStudents((prev) => [...prev, s]); setModalOpen(false); }} />}
       {quitModalStudent && <QuitModal student={quitModalStudent} onClose={() => setQuitModalStudent(null)} onConfirm={handleQuitConfirm} />}
       {bulkAssignOpen && (
         <BulkAssignModal count={selectedIds.size} scheduleOptions={scheduleOptions} onClose={() => setBulkAssignOpen(false)} onConfirm={handleBulkAssignConfirm} />
