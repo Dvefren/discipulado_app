@@ -32,7 +32,7 @@ export async function GET() {
         id: student.id,
         firstName: student.firstName,
         lastName: student.lastName,
-        phone: student.phone,
+        cellPhone: student.cellPhone,
         scheduleLabel: s.label,
         facilitatorName: t.facilitator.name,
       }))
