@@ -14,7 +14,11 @@ interface StudentAttendance {
   tableName: string; tableId: string; facilitatorName: string;
   status: string | null; absentReason: string | null;
   absentNote: string | null; altScheduleId: string | null;
-  altScheduleLabel: string | null; hasRecord: boolean;
+  altScheduleLabel: string | null;
+  altTableId: string | null;
+  altTableName: string | null;
+  altTableFacilitatorName: string | null;
+  hasRecord: boolean;
 }
 
 type Status = "PRESENT" | "ABSENT" | "PREVIEWED" | "RECOVERED";
@@ -25,6 +29,7 @@ interface AttendanceRecord {
   absentReason: AbsentReason | null;
   absentNote: string;
   altScheduleId: string;
+  altTableId: string;
 }
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
@@ -42,6 +47,7 @@ const ABSENT_REASONS: { value: AbsentReason; label: string }[] = [
 
 export default function AttendancePage() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [facilitators, setFacilitators] = useState<FacilitatorTable[]>([]);
   const [students, setStudents] = useState<StudentAttendance[]>([]);
@@ -50,6 +56,13 @@ export default function AttendancePage() {
   const [selectedSchedule, setSelectedSchedule] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedTable, setSelectedTable] = useState("");
+
+  // Cache of facilitators per alt schedule, keyed by scheduleId.
+  // Populated on-demand when a user picks an alt schedule for Adelantó/Recuperó.
+  // Cache of facilitators per alt schedule, keyed by scheduleId.
+  // Populated on-demand when a user picks an alt schedule for Adelantó/Recuperó.
+  const [altFacilitatorsCache, setAltFacilitatorsCache] = useState<Record<string, FacilitatorTable[]>>({});
+
   const [records, setRecords] = useState<Record<string, AttendanceRecord>>({});
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -59,7 +72,11 @@ export default function AttendancePage() {
   useEffect(() => {
     fetch("/api/attendance")
       .then((res) => res.json())
-      .then((data) => { setSchedules(data.schedules || []); setLoading(false); });
+      .then((data) => {
+        setSchedules(data.schedules || []);
+        setAllSchedules(data.allSchedules || []);
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -83,24 +100,53 @@ export default function AttendancePage() {
         const studentData: StudentAttendance[] = data.students || [];
         setStudents(studentData);
         const initial: Record<string, AttendanceRecord> = {};
+        const prefetchScheduleIds = new Set<string>();
         studentData.forEach((s) => {
           initial[s.id] = {
             status: s.hasRecord ? (s.status as Status) : null,
             absentReason: (s.absentReason as AbsentReason) || null,
             absentNote: s.absentNote || "",
             altScheduleId: s.altScheduleId || "",
+            altTableId: s.altTableId || "",
           };
+          if (s.altScheduleId) prefetchScheduleIds.add(s.altScheduleId);
         });
         setRecords(initial);
+        // Prefetch alt facilitators for any alt schedules already in use,
+        // so the dropdowns render the saved facilitator on first render.
+        prefetchScheduleIds.forEach((sid) => loadAltFacilitators(sid));
         setSaved(false);
         setExpandedStudent(null);
       });
   }, [selectedClass, selectedSchedule, selectedTable]);
 
+  async function loadAltFacilitators(altScheduleId: string) {
+    if (!altScheduleId) return;
+    if (altFacilitatorsCache[altScheduleId]) return; // already loaded
+    const res = await fetch(`/api/attendance?altScheduleId=${altScheduleId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setAltFacilitatorsCache((prev) => ({
+      ...prev,
+      [altScheduleId]: data.altFacilitators || [],
+    }));
+  }
+
+  function handleAltScheduleChange(studentId: string, altScheduleId: string) {
+    // Reset altTableId when the alt schedule changes — the previous facilitator
+    // belongs to a different schedule.
+    setRecords((prev) => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], altScheduleId, altTableId: "" },
+    }));
+    setSaved(false);
+    loadAltFacilitators(altScheduleId);
+  }
+
   function setStatus(studentId: string, status: Status) {
     setRecords((prev) => ({
       ...prev,
-      [studentId]: { ...prev[studentId], status, absentReason: null, absentNote: "", altScheduleId: "" },
+      [studentId]: { ...prev[studentId], status, absentReason: null, absentNote: "", altScheduleId: "", altTableId: "" },
     }));
     setSaved(false);
     if (status === "ABSENT" || status === "PREVIEWED" || status === "RECOVERED") {
@@ -126,7 +172,7 @@ export default function AttendancePage() {
   function markAllPresent() {
     const updated: Record<string, AttendanceRecord> = {};
     students.forEach((s) => {
-      updated[s.id] = { status: "PRESENT", absentReason: null, absentNote: "", altScheduleId: "" };
+      updated[s.id] = { status: "PRESENT", absentReason: null, absentNote: "", altScheduleId: "", altTableId: "" };
     });
     setRecords(updated);
     setSaved(false);
@@ -136,7 +182,7 @@ export default function AttendancePage() {
   function clearAll() {
     const updated: Record<string, AttendanceRecord> = {};
     students.forEach((s) => {
-      updated[s.id] = { status: null, absentReason: null, absentNote: "", altScheduleId: "" };
+      updated[s.id] = { status: null, absentReason: null, absentNote: "", altScheduleId: "", altTableId: "" };
     });
     setRecords(updated);
     setSaved(false);
@@ -145,6 +191,24 @@ export default function AttendancePage() {
 
   async function handleSave() {
     if (!selectedClass) return;
+
+    // Client-side validation: Adelantó/Recuperó require both alt schedule + alt table
+    const missing: string[] = [];
+    Object.entries(records).forEach(([studentId, rec]) => {
+      if (rec.status === "PREVIEWED" || rec.status === "RECOVERED") {
+        if (!rec.altScheduleId || !rec.altTableId) {
+          const s = students.find((s) => s.id === studentId);
+          if (s) missing.push(`${s.firstName} ${s.lastName}`);
+        }
+      }
+    });
+    if (missing.length > 0) {
+      alert(
+        `Los siguientes alumnos marcados como Adelantó/Recuperó necesitan horario Y facilitador:\n\n${missing.join("\n")}`
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const data = Object.entries(records)
@@ -154,18 +218,29 @@ export default function AttendancePage() {
           status: rec.status as any,
           absentReason: rec.status === "ABSENT" ? rec.absentReason : null,
           absentNote: rec.status === "ABSENT" ? rec.absentNote || null : null,
-          altScheduleId: (rec.status === "PREVIEWED" || rec.status === "RECOVERED") ? rec.altScheduleId || null : null,
+          altScheduleId:
+            rec.status === "PREVIEWED" || rec.status === "RECOVERED"
+              ? rec.altScheduleId || null
+              : null,
+          altTableId:
+            rec.status === "PREVIEWED" || rec.status === "RECOVERED"
+              ? rec.altTableId || null
+              : null,
         }));
       await saveAttendance({ classId: selectedClass, records: data });
       setSaved(true);
       fetch(`/api/attendance?scheduleId=${selectedSchedule}`)
         .then((res) => res.json())
         .then((d) => setClassSummary(d.classSummary || []));
-    } catch (err) { console.error(err); }
-    finally { setSaving(false); }
+    } catch (err) {
+      console.error(err);
+      alert("Error al guardar. Revisa la consola.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const otherSchedules = schedules.filter((s) => s.id !== selectedSchedule);
+  const otherSchedules = allSchedules.filter((s) => s.id !== selectedSchedule);
   const markedCount = Object.values(records).filter((r) => r.status !== null).length;
   const presentCount = Object.values(records).filter((r) => r.status === "PRESENT").length;
   const absentCount = Object.values(records).filter((r) => r.status === "ABSENT").length;
@@ -311,14 +386,42 @@ export default function AttendancePage() {
                         )}
 
                         {(rec.status === "PREVIEWED" || rec.status === "RECOVERED") && (
-                          <div>
-                            <label className="block text-xs text-muted-foreground mb-1">
-                              {rec.status === "PREVIEWED" ? "¿En qué horario adelantó?" : "¿En qué horario recuperó?"}
-                            </label>
-                            <select value={rec.altScheduleId} onChange={(e) => updateRecord(student.id, { altScheduleId: e.target.value })} className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card">
-                              <option value="">Seleccionar horario</option>
-                              {otherSchedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
-                            </select>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-xs text-muted-foreground mb-1">
+                                {rec.status === "PREVIEWED" ? "¿En qué horario adelantó? *" : "¿En qué horario recuperó? *"}
+                              </label>
+                              <select
+                                value={rec.altScheduleId}
+                                onChange={(e) => handleAltScheduleChange(student.id, e.target.value)}
+                                className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card"
+                              >
+                                <option value="">Seleccionar horario</option>
+                                {otherSchedules.map((s) => (<option key={s.id} value={s.id}>{s.label}</option>))}
+                              </select>
+                            </div>
+                            {rec.altScheduleId && (
+                              <div>
+                                <label className="block text-xs text-muted-foreground mb-1">
+                                  ¿Con qué facilitador? *
+                                </label>
+                                <select
+                                  value={rec.altTableId}
+                                  onChange={(e) => updateRecord(student.id, { altTableId: e.target.value })}
+                                  className="w-full px-3 py-1.5 text-xs border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-foreground bg-card"
+                                >
+                                  <option value="">Seleccionar facilitador</option>
+                                  {(altFacilitatorsCache[rec.altScheduleId] || []).map((f) => (
+                                    <option key={f.tableId} value={f.tableId}>
+                                      {f.tableName} — {f.facilitatorName}
+                                    </option>
+                                  ))}
+                                </select>
+                                {!altFacilitatorsCache[rec.altScheduleId] && (
+                                  <p className="text-[10px] text-muted-foreground mt-1">Cargando facilitadores...</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

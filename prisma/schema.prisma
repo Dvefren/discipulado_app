@@ -139,9 +139,11 @@ model FacilitatorTable {
   scheduleId     String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+
   facilitator    Facilitator @relation(fields: [facilitatorId], references: [id])
   schedule       Schedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   students       Student[]
+  altAttendances Attendance[] @relation("AltAttendance")
 }
 model Student {
   id            String     @id @default(cuid())
@@ -225,6 +227,7 @@ model Attendance {
   absentReason      AbsentReason?    // Only when status = ABSENT
   absentNote        String?          // Optional text note for ABSENT
   altScheduleId     String?          // Which schedule they attended (PREVIEWED/RECOVERED)
+  altTableId        String?          // Which table/facilitator exposed the class
   studentId         String
   classId           String
   markedById        String?
@@ -233,6 +236,7 @@ model Attendance {
   student           Student          @relation(fields: [studentId], references: [id])
   class             Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
   altSchedule       Schedule?        @relation(fields: [altScheduleId], references: [id])
+  altTable          FacilitatorTable? @relation("AltAttendance", fields: [altTableId], references: [id])
   @@unique([studentId, classId])
 }
 // ─── CALENDAR ───────────────────────────────────────────

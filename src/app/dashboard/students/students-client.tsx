@@ -743,7 +743,10 @@ function StudentProfile({ student, scheduleOptions, role, userId, facilitatorTab
             <button onClick={() => setEditOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-foreground transition-colors"><Pencil size={12} /> Editar</button>
             <button onClick={() => onQuit(student)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><UserMinus size={12} /> Baja</button>
           </>)}
-          <div className="text-right"><p className="text-2xl font-bold text-foreground">{pct}%</p><p className="text-xs text-muted-foreground">asistencia</p></div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-foreground">{pct}%</p>
+            <p className="text-xs text-muted-foreground">{effective}/{total} asistencias</p>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">

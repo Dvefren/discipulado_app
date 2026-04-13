@@ -79,7 +79,7 @@ function buildStudentData(body: Record<string, any>) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
+  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY" && role !== "SCHEDULE_LEADER")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

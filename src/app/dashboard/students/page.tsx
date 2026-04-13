@@ -137,7 +137,7 @@ export default async function StudentsPage() {
   const userScheduleId = await getUserScheduleId(userId, role);
   const facilitatorTableIds = role === "FACILITATOR" ? await getFacilitatorTableIds(userId) : [];
 
-  const canSeeUnassigned = true;
+  const canSeeUnassigned = role !== "FACILITATOR";
 
   const [courseData, unassignedRaw] = await Promise.all([
     prisma.course.findFirst({
@@ -177,6 +177,10 @@ export default async function StudentsPage() {
 
   for (const s of visibleSchedules) {
     for (const tbl of s.tables) {
+      // Facilitators only see students from their own tables
+      if (role === "FACILITATOR" && !facilitatorTableIds.includes(tbl.id)) {
+        continue;
+      }
       for (const student of tbl.students) {
         const serialized = serializeStudent(student, tbl, s);
         if (student.status === "QUIT") quitStudents.push(serialized);

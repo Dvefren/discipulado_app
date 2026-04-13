@@ -4,12 +4,13 @@ import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   const scope = await getUserScope();
-  if (!scope) return NextResponse.json({ schedules: [], classes: [], students: [], facilitators: [] });
+  if (!scope) return NextResponse.json({ schedules: [], allSchedules: [], classes: [], students: [], facilitators: [], classSummary: [], altFacilitators: [] });
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get("scheduleId");
   const classId = searchParams.get("classId");
   const tableFilter = searchParams.get("tableId");
+  const altScheduleIdParam = searchParams.get("altScheduleId");
 
   const course = await prisma.course.findFirst({
     where: { isActive: true },
@@ -21,14 +22,20 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!course) return NextResponse.json({ schedules: [], classes: [], students: [], facilitators: [] });
+  if (!course) return NextResponse.json({ schedules: [], allSchedules: [], classes: [], students: [], facilitators: [], classSummary: [], altFacilitators: [] });
 
+  // schedules = what the current user is allowed to pick as their working schedule
   let availableSchedules = course.schedules;
   if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {
     availableSchedules = availableSchedules.filter((s) => scope.scheduleIds.includes(s.id));
   }
-
   const schedules = availableSchedules.map((s) => ({ id: s.id, label: s.label }));
+
+  // allSchedules = every schedule in the course, unscoped.
+  // Used by the client to populate the Adelantó/Recuperó alt schedule dropdown,
+  // because a student can attend any schedule when catching up — not just the
+  // caller's assigned one.
+  const allSchedules = course.schedules.map((s) => ({ id: s.id, label: s.label }));
 
   const selectedSchedule = scheduleId ? availableSchedules.find((s) => s.id === scheduleId) : null;
 
@@ -67,6 +74,23 @@ export async function GET(request: NextRequest) {
     }));
   }
 
+  // Get facilitators for an ALT schedule (used when marking Adelantó/Recuperó).
+  // No role scoping here — any user marking attendance needs to see all
+  // available facilitators in the schedule the student attended.
+  let altFacilitators: any[] = [];
+  if (altScheduleIdParam) {
+    const altTables = await prisma.facilitatorTable.findMany({
+      where: { scheduleId: altScheduleIdParam },
+      include: { facilitator: true },
+      orderBy: { name: "asc" },
+    });
+    altFacilitators = altTables.map((t) => ({
+      tableId: t.id,
+      tableName: t.name,
+      facilitatorName: t.facilitator.name,
+    }));
+  }
+
   // Get students with attendance if class is selected
   let students: any[] = [];
   if (classId && scheduleId) {
@@ -87,7 +111,10 @@ export async function GET(request: NextRequest) {
           include: {
             attendance: {
               where: { classId },
-              include: { altSchedule: true },
+              include: {
+                altSchedule: true,
+                altTable: { include: { facilitator: true } },
+              },
             },
           },
         },
@@ -110,6 +137,9 @@ export async function GET(request: NextRequest) {
           absentNote: record?.absentNote || null,
           altScheduleId: record?.altScheduleId || null,
           altScheduleLabel: record?.altSchedule?.label || null,
+          altTableId: record?.altTableId || null,
+          altTableName: record?.altTable?.name || null,
+          altTableFacilitatorName: record?.altTable?.facilitator?.name || null,
           hasRecord: !!record,
         };
       })
@@ -138,5 +168,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ schedules, classes, students, facilitators, classSummary });
+  return NextResponse.json({ schedules, allSchedules, classes, students, facilitators, classSummary, altFacilitators });
 }

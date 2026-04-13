@@ -1,5 +1,4 @@
 "use server";
-
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -13,6 +12,7 @@ export async function saveAttendance(data: {
     absentReason?: AbsentReason | null;
     absentNote?: string | null;
     altScheduleId?: string | null;
+    altTableId?: string | null;
   }[];
 }) {
   const session = await auth();
@@ -21,6 +21,17 @@ export async function saveAttendance(data: {
   }
 
   for (const record of data.records) {
+    const needsAlt = record.status === "PREVIEWED" || record.status === "RECOVERED";
+    const altScheduleId = needsAlt ? record.altScheduleId ?? null : null;
+    const altTableId = needsAlt ? record.altTableId ?? null : null;
+
+    // Validate: if marking Adelantó/Recuperó, both alt fields are required
+    if (needsAlt && (!altScheduleId || !altTableId)) {
+      throw new Error(
+        `Adelantó/Recuperó requires both schedule and facilitator (student ${record.studentId})`
+      );
+    }
+
     await prisma.attendance.upsert({
       where: {
         studentId_classId: {
@@ -34,20 +45,16 @@ export async function saveAttendance(data: {
         status: record.status,
         absentReason: record.status === "ABSENT" ? record.absentReason : null,
         absentNote: record.status === "ABSENT" ? record.absentNote : null,
-        altScheduleId:
-          record.status === "PREVIEWED" || record.status === "RECOVERED"
-            ? record.altScheduleId
-            : null,
+        altScheduleId,
+        altTableId,
         markedById: session.user.id,
       },
       update: {
         status: record.status,
         absentReason: record.status === "ABSENT" ? record.absentReason : null,
         absentNote: record.status === "ABSENT" ? record.absentNote : null,
-        altScheduleId:
-          record.status === "PREVIEWED" || record.status === "RECOVERED"
-            ? record.altScheduleId
-            : null,
+        altScheduleId,
+        altTableId,
         markedById: session.user.id,
       },
     });
