@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth"; 
 import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
+
+  const { error } = await requireAuth();
+  if (error) return error;  
+
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get("scheduleId");
 

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const ip = forwarded?.split(",")[0]?.trim() || "unknown";
   const key = `login:${ip}`;
 
-  const { allowed, remainingAttempts, retryAfterMs } = checkRateLimit(key, {
+  const { allowed, remainingAttempts, retryAfterMs } = await checkRateLimit(key, {
     maxAttempts: 5,
     windowMs: 15 * 60 * 1000,       // 15 min window
     blockDurationMs: 15 * 60 * 1000, // Block 15 min

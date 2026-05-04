@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/api-auth";
 
 export async function GET() {
-  const session = await auth();
-  const user = session?.user as any;
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error, session } = await requireAuth();
+  if (error) return error;
 
   const facilitator = await prisma.facilitator.findFirst({
-    where: { userId: user.id },
+    where: { userId: session!.user.id },
     select: { id: true },
   });
 

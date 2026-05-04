@@ -1,14 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const VISION_API_URL = "https://vision.googleapis.com/v1/images:annotate";
 
+// 🛡️ Límites de archivo
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// 🛡️ Config de rate limit para OCR: 30 escaneos por hora
+const OCR_RATE_LIMIT = {
+  maxAttempts: 30,
+  windowMs: 60 * 60 * 1000,        // 1 hora
+  blockDurationMs: 60 * 60 * 1000, // bloqueo de 1 hora si excede
+};
+
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // 🛡️ Auth
+  const { error, session } = await requireAuth();
+  if (error) return error;
+
+  const userId = session!.user.id;
+  const key = `ocr:${userId}`;
+
+  // 🛡️ Rate limit por usuario
+  const { allowed, remainingAttempts, retryAfterMs } = await checkRateLimit(key, OCR_RATE_LIMIT);
+
+  if (!allowed) {
+    const minutes = Math.ceil((retryAfterMs || 0) / 60000);
+    return NextResponse.json(
+      {
+        error: `Has alcanzado el límite de escaneos por hora. Intenta de nuevo en ${minutes} minutos.`,
+        retryAfterMs,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil((retryAfterMs || 0) / 1000)),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
   }
 
+  // 🛡️ Verificar que el OCR esté configurado
   const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "OCR not configured" }, { status: 500 });
@@ -16,9 +51,31 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData();
-    const file = formData.get("image") as File | null;
-    if (!file) {
+    const file = formData.get("image");
+
+    // 🛡️ Validar que es un File
+    if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    }
+
+    // 🛡️ Validar tipo MIME
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: `Formato no soportado. Usa: ${ALLOWED_MIME_TYPES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // 🛡️ Validar tamaño
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `La imagen es demasiado grande. Máximo ${MAX_FILE_SIZE / 1024 / 1024} MB` },
+        { status: 400 }
+      );
+    }
+
+    if (file.size === 0) {
+      return NextResponse.json({ error: "El archivo está vacío" }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -57,17 +114,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("─── OCR RAW TEXT ───");
-    console.log(fullText);
-    console.log("────────────────────");
+    // 🛡️ En producción, evitar logs sensibles
+    if (process.env.NODE_ENV !== "production") {
+      console.log("─── OCR RAW TEXT ───");
+      console.log(fullText);
+      console.log("────────────────────");
+    }
 
     const result = parseAlianzaForm(fullText);
 
-    console.log("─── PARSED RESULT ───");
-    console.log(JSON.stringify(result, null, 2));
-    console.log("─────────────────────");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("─── PARSED RESULT ───");
+      console.log(JSON.stringify(result, null, 2));
+      console.log("─────────────────────");
+    }
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        "X-RateLimit-Remaining": String(remainingAttempts),
+      },
+    });
   } catch (err) {
     console.error("OCR error:", err);
     return NextResponse.json(
@@ -76,6 +142,13 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// ─── PARSER ──────────────────────────────────────────────
+// (todo el parser desde aquí queda EXACTAMENTE IGUAL)
+// (interface ParsedForm, KNOWN_LABELS, isLabel, stripLabel, findValue,
+//  findEmail, findValueNearby, parseBool, parseDate, extractPhone,
+//  splitName, parseAlianzaForm)
+
 // ─── PARSER ──────────────────────────────────────────────
 // Tuned for the Alianza Cristiana Reynosa registration form.
 

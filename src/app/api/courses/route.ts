@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const { error } = await requireAuth();  
+  if (error) return error;
   const courses = await prisma.course.findMany({
     include: {
       schedules: {
