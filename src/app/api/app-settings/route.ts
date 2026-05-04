@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
+  const { error } = await requireAuth();
+  if (error) return error;
+
   const { searchParams } = new URL(req.url);
   const key = searchParams.get("key");
 
@@ -27,22 +30,34 @@ export async function GET(req: NextRequest) {
   for (const s of settings) {
     map[s.key] = s.value;
   }
-  // Always inject collected total for graduation_fund (even if no setting row exists)
   map.graduation_fund = await enrichGraduationFund(map.graduation_fund);
 
   return NextResponse.json(map);
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN"]);
+  if (error) return error;
 
   const { key, value } = await req.json();
-  if (!key) {
+
+  // Validación de input
+  if (!key || typeof key !== "string") {
     return NextResponse.json({ error: "Key required" }, { status: 400 });
+  }
+
+  // 🛡️ Whitelist de keys permitidas — evita crear settings arbitrarios
+  const ALLOWED_KEYS = [
+    "graduation_fund",
+    "chart_visibility",
+    // agrega aquí cualquier otra key que uses
+  ];
+
+  if (!ALLOWED_KEYS.includes(key)) {
+    return NextResponse.json(
+      { error: `Key '${key}' is not allowed` },
+      { status: 400 }
+    );
   }
 
   const setting = await prisma.appSetting.upsert({

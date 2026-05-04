@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-auth";
 
 // ─── Helpers ────────────────────────────────────────────
 
 function parseDateOrNull(value: unknown): Date | null {
   if (!value || typeof value !== "string") return null;
-  // Append noon UTC to avoid timezone day-shifting
-  return new Date(value + "T12:00:00Z");
+  const date = new Date(value + "T12:00:00Z");
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function strOrNull(value: unknown): string | null {
@@ -28,14 +28,17 @@ function genderOrNull(value: unknown): "MALE" | "FEMALE" | null {
   return null;
 }
 
-// Build the Prisma data object from a request body.
-// Only includes fields that were actually provided (undefined = skip).
+// Validar que un string sea válido como nombre/apellido
+function isValidName(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= 100;
+}
+
 function buildStudentData(body: Record<string, any>) {
   const data: Record<string, any> = {};
 
   // Datos personales
-  if (body.firstName !== undefined) data.firstName = body.firstName;
-  if (body.lastName !== undefined) data.lastName = body.lastName;
+  if (body.firstName !== undefined) data.firstName = strOrNull(body.firstName);
+  if (body.lastName !== undefined) data.lastName = strOrNull(body.lastName);
   if (body.birthdate !== undefined) data.birthdate = parseDateOrNull(body.birthdate);
   if (body.gender !== undefined) data.gender = genderOrNull(body.gender);
   if (body.maritalStatus !== undefined) data.maritalStatus = strOrNull(body.maritalStatus);
@@ -69,7 +72,9 @@ function buildStudentData(body: Record<string, any>) {
   if (body.enrollmentDate !== undefined) data.enrollmentDate = parseDateOrNull(body.enrollmentDate);
 
   // Assignment
-  if (body.tableId !== undefined) data.tableId = body.tableId || null;
+  if (body.tableId !== undefined) {
+    data.tableId = body.tableId && typeof body.tableId === "string" ? body.tableId : null;
+  }
 
   return data;
 }
@@ -77,39 +82,39 @@ function buildStudentData(body: Record<string, any>) {
 // ─── POST: create student ───────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY" && role !== "SCHEDULE_LEADER")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN", "SECRETARY", "SCHEDULE_LEADER"]);
+  if (error) return error;
 
   const body = await req.json();
 
-  if (!body.firstName || !body.lastName) {
+  if (!isValidName(body.firstName) || !isValidName(body.lastName)) {
     return NextResponse.json(
-      { error: "Nombre y apellido son requeridos" },
+      { error: "Nombre y apellido son requeridos (1-100 caracteres)" },
       { status: 400 }
     );
   }
 
-  const data = buildStudentData(body);
+  // Validar tableId si se provee
+  if (body.tableId) {
+    const table = await prisma.facilitatorTable.findUnique({ where: { id: body.tableId } });
+    if (!table) {
+      return NextResponse.json({ error: "Mesa/facilitador no encontrado" }, { status: 400 });
+    }
+  }
 
-  // firstName and lastName are required at create time, ensure they're present
-  data.firstName = body.firstName;
-  data.lastName = body.lastName;
+  const data = buildStudentData(body);
+  data.firstName = body.firstName.trim();
+  data.lastName = body.lastName.trim();
 
   const student = await prisma.student.create({ data: data as any });
   return NextResponse.json(student, { status: 201 });
 }
 
-// ─── PATCH: update student / bulk assign / quit / reactivate ───
+// ─── PATCH ──────────────────────────────────────────────
 
 export async function PATCH(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN", "SECRETARY"]);
+  if (error) return error;
 
   const body = await req.json();
   const { id, action } = body;
@@ -120,7 +125,13 @@ export async function PATCH(req: NextRequest) {
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
       return NextResponse.json({ error: "studentIds requerido" }, { status: 400 });
     }
-    if (!tableId) {
+    if (studentIds.length > 500) {
+      return NextResponse.json(
+        { error: "Demasiados alumnos en una sola operación (máx 500)" },
+        { status: 400 }
+      );
+    }
+    if (!tableId || typeof tableId !== "string") {
       return NextResponse.json({ error: "tableId requerido" }, { status: 400 });
     }
     const table = await prisma.facilitatorTable.findUnique({ where: { id: tableId } });
@@ -134,26 +145,35 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, count: result.count });
   }
 
-  if (!id) {
+  if (!id || typeof id !== "string") {
     return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
   }
 
-  // ─── Mark as Baja (quit) ───────────────────────────────
+  // Verificar que el estudiante existe
+  const existingStudent = await prisma.student.findUnique({ where: { id } });
+  if (!existingStudent) {
+    return NextResponse.json({ error: "Alumno no encontrado" }, { status: 404 });
+  }
+
+  // ─── Quit ─────────────────────────────────────────────
   if (action === "quit") {
+    const quitDate = body.quitDate ? parseDateOrNull(body.quitDate) : new Date();
+    if (body.quitDate && !quitDate) {
+      return NextResponse.json({ error: "Fecha de baja inválida" }, { status: 400 });
+    }
+
     const student = await prisma.student.update({
       where: { id },
       data: {
         status: "QUIT",
-        quitDate: body.quitDate
-          ? new Date(body.quitDate + "T12:00:00Z")
-          : new Date(),
-        quitReason: body.quitReason || null,
+        quitDate: quitDate || new Date(),
+        quitReason: strOrNull(body.quitReason),
       },
     });
     return NextResponse.json(student);
   }
 
-  // ─── Reactivate student ────────────────────────────────
+  // ─── Reactivate ───────────────────────────────────────
   if (action === "reactivate") {
     const student = await prisma.student.update({
       where: { id },
@@ -166,7 +186,23 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(student);
   }
 
-  // ─── Normal update ─────────────────────────────────────
+  // ─── Normal update ────────────────────────────────────
+  // Validar tableId si se provee
+  if (body.tableId) {
+    const table = await prisma.facilitatorTable.findUnique({ where: { id: body.tableId } });
+    if (!table) {
+      return NextResponse.json({ error: "Mesa/facilitador no encontrado" }, { status: 400 });
+    }
+  }
+
+  // Validar nombres si se cambian
+  if (body.firstName !== undefined && !isValidName(body.firstName)) {
+    return NextResponse.json({ error: "Nombre inválido" }, { status: 400 });
+  }
+  if (body.lastName !== undefined && !isValidName(body.lastName)) {
+    return NextResponse.json({ error: "Apellido inválido" }, { status: 400 });
+  }
+
   const data = buildStudentData(body);
 
   const student = await prisma.student.update({
@@ -176,19 +212,31 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json(student);
 }
 
-// ─── DELETE: remove student permanently ─────────────────
+// ─── DELETE ─────────────────────────────────────────────
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN"]); // 🛡️ Solo ADMIN puede borrar permanentemente
+  if (error) return error;
+
   const { id } = await req.json();
-  if (!id) {
+  if (!id || typeof id !== "string") {
     return NextResponse.json({ error: "ID del alumno requerido" }, { status: 400 });
   }
-  await prisma.attendance.deleteMany({ where: { studentId: id } });
-  await prisma.student.delete({ where: { id } });
+
+  const existing = await prisma.student.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Alumno no encontrado" }, { status: 404 });
+  }
+
+  // Borrar en transacción para evitar inconsistencias
+  await prisma.$transaction([
+    prisma.attendance.deleteMany({ where: { studentId: id } }),
+    prisma.studentNote.deleteMany({ where: { studentId: id } }),
+    prisma.studentRelationship.deleteMany({
+      where: { OR: [{ studentAId: id }, { studentBId: id }] },
+    }),
+    prisma.student.delete({ where: { id } }),
+  ]);
+
   return NextResponse.json({ ok: true });
 }

@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole } from "@/lib/api-auth";
+
+const VALID_TYPES = ["Esposo/a", "Hermano/a", "Padre/Madre", "Hijo/a", "Otro"] as const;
+type RelationType = typeof VALID_TYPES[number];
+
+function isValidType(type: unknown): type is RelationType {
+  return typeof type === "string" && (VALID_TYPES as readonly string[]).includes(type);
+}
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { error } = await requireAuth();
+  if (error) return error;
 
   const { searchParams } = new URL(req.url);
   const studentId = searchParams.get("studentId");
-  if (!studentId) return NextResponse.json({ error: "studentId required" }, { status: 400 });
+  if (!studentId || typeof studentId !== "string") {
+    return NextResponse.json({ error: "studentId required" }, { status: 400 });
+  }
 
-  // Fetch relationships where this student is either side
   const [asA, asB] = await Promise.all([
     prisma.studentRelationship.findMany({
       where: { studentAId: studentId },
@@ -41,21 +49,41 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN", "SECRETARY"]);
+  if (error) return error;
 
   const { studentAId, studentBId, type } = await req.json();
-  if (!studentAId || !studentBId || !type) {
-    return NextResponse.json({ error: "Todos los campos son requeridos" }, { status: 400 });
+
+  // Validación de input
+  if (!studentAId || typeof studentAId !== "string") {
+    return NextResponse.json({ error: "studentAId requerido" }, { status: 400 });
+  }
+  if (!studentBId || typeof studentBId !== "string") {
+    return NextResponse.json({ error: "studentBId requerido" }, { status: 400 });
+  }
+  if (!isValidType(type)) {
+    return NextResponse.json(
+      { error: `Tipo inválido. Debe ser uno de: ${VALID_TYPES.join(", ")}` },
+      { status: 400 }
+    );
   }
   if (studentAId === studentBId) {
-    return NextResponse.json({ error: "No puedes relacionar un alumno consigo mismo" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No puedes relacionar un alumno consigo mismo" },
+      { status: 400 }
+    );
   }
 
-  // Check if relationship already exists in either direction
+  // 🛡️ Verificar que ambos estudiantes existen
+  const [studentA, studentB] = await Promise.all([
+    prisma.student.findUnique({ where: { id: studentAId }, select: { id: true } }),
+    prisma.student.findUnique({ where: { id: studentBId }, select: { id: true } }),
+  ]);
+  if (!studentA || !studentB) {
+    return NextResponse.json({ error: "Uno de los alumnos no existe" }, { status: 404 });
+  }
+
+  // Verificar que la relación no exista en ninguna dirección
   const existing = await prisma.studentRelationship.findFirst({
     where: {
       OR: [
@@ -75,29 +103,37 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({
-    id: relationship.id,
-    relatedStudent: relationship.studentB,
-    type: relationship.type,
-    createdAt: relationship.createdAt.toISOString(),
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      id: relationship.id,
+      relatedStudent: relationship.studentB,
+      type: relationship.type,
+      createdAt: relationship.createdAt.toISOString(),
+    },
+    { status: 201 }
+  );
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SECRETARY")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN", "SECRETARY"]);
+  if (error) return error;
 
   const { id } = await req.json();
-  if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  if (!id || typeof id !== "string") {
+    return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  }
+
+  // Verificar existencia para mejor error
+  const existing = await prisma.studentRelationship.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Relación no encontrada" }, { status: 404 });
+  }
 
   await prisma.studentRelationship.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
 
-// When viewing from the B side, invert directional types
+// Cuando se ve desde el lado B, invertimos los tipos direccionales
 function inverseType(type: string): string {
   const inverses: Record<string, string> = {
     "Padre/Madre": "Hijo/a",

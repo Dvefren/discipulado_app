@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
 export async function GET(request: NextRequest) {
-  // ── Auth check ──────────────────────────────────────────
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const role = (session.user as any).role;
-  if (!["ADMIN", "SCHEDULE_LEADER", "SECRETARY"].includes(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  const { error } = await requireRole(["ADMIN", "SCHEDULE_LEADER", "SECRETARY"]);
+  if (error) return error;
+  
   const { searchParams } = new URL(request.url);
   const scheduleFilter = searchParams.get("schedule");
 

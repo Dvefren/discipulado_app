@@ -11,10 +11,15 @@ export interface UserScope {
 
 export async function getUserScope(): Promise<UserScope | null> {
   const session = await auth();
-  if (!session?.user) return null;
+  if (!session?.user?.id) return null;
 
   const role = (session.user as any).role as UserScope["role"];
   const userId = session.user.id;
+
+  // 🛡️ Validar que el rol sea uno de los esperados
+  if (!["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"].includes(role)) {
+    return null;
+  }
 
   if (role === "ADMIN") {
     return { userId, role, scheduleIds: [], tableIds: [], facilitatorId: null };
@@ -23,15 +28,18 @@ export async function getUserScope(): Promise<UserScope | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      facilitator: {
-        include: { tables: true },
-      },
+      facilitator: { include: { tables: true } },
       scheduleLeaders: true,
       secretaries: true,
     },
   });
 
   if (!user) return null;
+
+  // 🛡️ Si el rol en la DB no coincide con el del JWT, rechazamos
+  // (esto evita que un usuario con JWT viejo siga teniendo permisos
+  // después de que un admin le cambió el rol)
+  if (user.role !== role) return null;
 
   let scheduleIds: string[] = [];
   let tableIds: string[] = [];
@@ -57,7 +65,6 @@ export async function getUserScope(): Promise<UserScope | null> {
     if (user.facilitator) {
       facilitatorId = user.facilitator.id;
       tableIds = user.facilitator.tables.map((t) => t.id);
-      // Facilitator sees data from their table's schedule
       scheduleIds = user.facilitator.tables.map((t) => t.scheduleId);
     }
   }

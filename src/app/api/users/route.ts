@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-auth";
 import { hash } from "bcryptjs";
 
-async function checkAdmin() {
-  const session = await auth();
-  const role = (session?.user as any)?.role;
-  if (!session?.user || role !== "ADMIN") return null;
-  return session;
+const VALID_ROLES = ["ADMIN", "SCHEDULE_LEADER", "SECRETARY", "FACILITATOR"] as const;
+type Role = typeof VALID_ROLES[number];
+
+function isValidRole(role: unknown): role is Role {
+  return typeof role === "string" && VALID_ROLES.includes(role as Role);
 }
 
 export async function GET() {
+  // Solo ADMIN puede ver la lista completa de usuarios
+  const { error } = await requireRole(["ADMIN"]);
+  if (error) return error;
+
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
     include: {
@@ -72,14 +76,23 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN"]);
+  if (error) return error;
 
   const { name, email, password, role, scheduleId, facilitatorId } = await req.json();
 
-  if (!name || !email || !password || !role) {
-    return NextResponse.json({ error: "Name, email, password, and role are required" }, { status: 400 });
+  // Validación de input
+  if (!name || typeof name !== "string" || name.trim().length < 2) {
+    return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
+  }
+  if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+  }
+  if (!password || typeof password !== "string" || password.length < 8) {
+    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+  if (!isValidRole(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
   // Check for duplicate email
@@ -91,7 +104,7 @@ export async function POST(req: NextRequest) {
   const hashed = await hash(password, 10);
 
   const user = await prisma.user.create({
-    data: { name, email, password: hashed, role },
+    data: { name: name.trim(), email: email.toLowerCase().trim(), password: hashed, role },
   });
 
   // Assign to schedule based on role
@@ -108,19 +121,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Auto-create or link a Facilitator record for leaders and secretaries
-  // so they get a profile page (same as facilitators do)
   if (role === "SCHEDULE_LEADER" || role === "SECRETARY") {
-    const existing = await prisma.facilitator.findFirst({
-      where: { name, userId: null },
+    const existingFac = await prisma.facilitator.findFirst({
+      where: { name: name.trim(), userId: null },
     });
-    if (existing) {
+    if (existingFac) {
       await prisma.facilitator.update({
-        where: { id: existing.id },
+        where: { id: existingFac.id },
         data: { userId: user.id },
       });
     } else {
       await prisma.facilitator.create({
-        data: { name, userId: user.id },
+        data: { name: name.trim(), userId: user.id },
       });
     }
   }
@@ -132,18 +144,36 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ id: user.id, name: user.name, email: user.email, role: user.role }, { status: 201 });
+  return NextResponse.json(
+    { id: user.id, name: user.name, email: user.email, role: user.role },
+    { status: 201 }
+  );
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error, session } = await requireRole(["ADMIN"]);
+  if (error) return error;
 
   const { id, name, email, role, scheduleId, facilitatorId } = await req.json();
 
-  if (!id) {
+  if (!id || typeof id !== "string") {
     return NextResponse.json({ error: "User ID required" }, { status: 400 });
+  }
+
+  // Validar role si se está cambiando
+  if (role !== undefined && !isValidRole(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+
+  // 🛡️ Prevenir auto-degradación: el último admin no puede dejar de ser admin
+  if (id === session!.user.id && role && role !== "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        { error: "Cannot remove admin role from the last admin" },
+        { status: 400 }
+      );
+    }
   }
 
   const existingUser = await prisma.user.findUnique({ where: { id } });
@@ -151,7 +181,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Check email uniqueness if changed
   if (email && email !== existingUser.email) {
     const dup = await prisma.user.findUnique({ where: { email } });
     if (dup) {
@@ -159,45 +188,38 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Keep the linked Facilitator name in sync (for leaders/secretaries with auto-created profiles)
   const data: Record<string, any> = {};
-  if (name !== undefined) data.name = name;
-  if (email !== undefined) data.email = email;
+  if (name !== undefined) data.name = name.trim();
+  if (email !== undefined) data.email = email.toLowerCase().trim();
   if (role !== undefined) data.role = role;
 
   const user = await prisma.user.update({ where: { id }, data });
 
-  // Keep the linked Facilitator name in sync (for leaders/secretaries with auto-created profiles)
   if (name !== undefined) {
     const linkedFac = await prisma.facilitator.findUnique({ where: { userId: id } });
     if (linkedFac) {
       await prisma.facilitator.update({
         where: { id: linkedFac.id },
-        data: { name },
+        data: { name: name.trim() },
       });
     }
   }
 
-  // If role changed, clean up old role assignments and create new ones
   if (role && role !== existingUser.role) {
-    // Remove old role assignments
     await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
     await prisma.secretary.deleteMany({ where: { userId: id } });
 
-    // Handle the existing Facilitator link based on what we're changing TO
     const linkedFacilitator = await prisma.facilitator.findUnique({ where: { userId: id } });
 
     if (role === "SCHEDULE_LEADER" || role === "SECRETARY") {
-      // New role still needs a facilitator profile
       if (!linkedFacilitator) {
-        // Try to find an unlinked Facilitator with the same name first
         const facName = name ?? existingUser.name;
-        const existing = await prisma.facilitator.findFirst({
+        const existingFac = await prisma.facilitator.findFirst({
           where: { name: facName, userId: null },
         });
-        if (existing) {
+        if (existingFac) {
           await prisma.facilitator.update({
-            where: { id: existing.id },
+            where: { id: existingFac.id },
             data: { userId: id },
           });
         } else {
@@ -206,10 +228,7 @@ export async function PATCH(req: NextRequest) {
           });
         }
       }
-      // If they already had one, leave it linked — they keep the same profile
     } else {
-      // New role is ADMIN or FACILITATOR — unlink any auto-created leader/secretary facilitator
-      // (For role=FACILITATOR we'll relink to the chosen one below)
       if (linkedFacilitator) {
         await prisma.facilitator.update({
           where: { id: linkedFacilitator.id },
@@ -218,16 +237,11 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // Create new schedule assignments
     if (role === "SCHEDULE_LEADER" && scheduleId) {
-      await prisma.scheduleLeader.create({
-        data: { userId: id, scheduleId },
-      });
+      await prisma.scheduleLeader.create({ data: { userId: id, scheduleId } });
     }
     if (role === "SECRETARY" && scheduleId) {
-      await prisma.secretary.create({
-        data: { userId: id, scheduleId },
-      });
+      await prisma.secretary.create({ data: { userId: id, scheduleId } });
     }
     if (role === "FACILITATOR" && facilitatorId) {
       await prisma.facilitator.update({
@@ -236,7 +250,6 @@ export async function PATCH(req: NextRequest) {
       });
     }
   } else {
-    // Role didn't change, but schedule assignment might have
     if ((role === "SCHEDULE_LEADER" || existingUser.role === "SCHEDULE_LEADER") && scheduleId !== undefined) {
       await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
       if (scheduleId) {
@@ -264,16 +277,34 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await checkAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error, session } = await requireRole(["ADMIN"]);
+  if (error) return error;
 
   const { id } = await req.json();
-  if (!id) {
+  if (!id || typeof id !== "string") {
     return NextResponse.json({ error: "User ID required" }, { status: 400 });
   }
 
-  // Clean up role assignments
+  // 🛡️ Prevenir auto-eliminación
+  if (id === session!.user.id) {
+    return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
+  }
+
+  // 🛡️ Prevenir eliminar el último admin
+  const target = await prisma.user.findUnique({ where: { id } });
+  if (!target) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (target.role === "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        { error: "Cannot delete the last admin" },
+        { status: 400 }
+      );
+    }
+  }
+
   await prisma.scheduleLeader.deleteMany({ where: { userId: id } });
   await prisma.secretary.deleteMany({ where: { userId: id } });
 
@@ -283,10 +314,8 @@ export async function DELETE(req: NextRequest) {
   });
   if (linkedFacilitator) {
     if (linkedFacilitator.tables.length === 0) {
-      // Orphan facilitator (auto-created for leader/secretary, no tables) — delete it
       await prisma.facilitator.delete({ where: { id: linkedFacilitator.id } });
     } else {
-      // Real facilitator with tables — just unlink the user, preserve the data
       await prisma.facilitator.update({
         where: { id: linkedFacilitator.id },
         data: { userId: null },

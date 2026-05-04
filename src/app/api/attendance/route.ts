@@ -2,15 +2,45 @@ import { prisma } from "@/lib/prisma";
 import { getUserScope } from "@/lib/scope";
 import { NextResponse, NextRequest } from "next/server";
 
+const EMPTY_RESPONSE = {
+  schedules: [],
+  allSchedules: [],
+  classes: [],
+  students: [],
+  facilitators: [],
+  classSummary: [],
+  altFacilitators: [],
+};
+
 export async function GET(request: NextRequest) {
   const scope = await getUserScope();
-  if (!scope) return NextResponse.json({ schedules: [], allSchedules: [], classes: [], students: [], facilitators: [], classSummary: [], altFacilitators: [] });
+  if (!scope) return NextResponse.json(EMPTY_RESPONSE);
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get("scheduleId");
   const classId = searchParams.get("classId");
   const tableFilter = searchParams.get("tableId");
   const altScheduleIdParam = searchParams.get("altScheduleId");
+
+  // 🛡️ Si tableFilter está, validar que sea uno de los permitidos
+  if (
+    tableFilter &&
+    scope.role === "FACILITATOR" &&
+    scope.tableIds.length > 0 &&
+    !scope.tableIds.includes(tableFilter)
+  ) {
+    return NextResponse.json(EMPTY_RESPONSE);
+  }
+
+  // 🛡️ Si scheduleId está, validar que sea uno de los permitidos
+  if (
+    scheduleId &&
+    scope.role !== "ADMIN" &&
+    scope.scheduleIds.length > 0 &&
+    !scope.scheduleIds.includes(scheduleId)
+  ) {
+    return NextResponse.json(EMPTY_RESPONSE);
+  }
 
   const course = await prisma.course.findFirst({
     where: { isActive: true },
@@ -22,8 +52,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  if (!course) return NextResponse.json({ schedules: [], allSchedules: [], classes: [], students: [], facilitators: [], classSummary: [], altFacilitators: [] });
-
+if (!course) return NextResponse.json(EMPTY_RESPONSE);
   // schedules = what the current user is allowed to pick as their working schedule
   let availableSchedules = course.schedules;
   if (scope.role !== "ADMIN" && scope.scheduleIds.length > 0) {

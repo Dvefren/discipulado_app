@@ -2,13 +2,32 @@ import { prisma } from "@/lib/prisma";
 import { getUserScope } from "@/lib/scope";
 import { NextResponse, NextRequest } from "next/server";
 
+const EMPTY_RESPONSE = {
+  classes: [],
+  facilitatorBirthdays: [],
+  studentBirthdays: [],
+  courseEvents: [],
+};
+
 export async function GET(request: NextRequest) {
   const scope = await getUserScope();
-  if (!scope) return NextResponse.json({ classes: [], facilitatorBirthdays: [], studentBirthdays: [], courseEvents: [] });
+  if (!scope) return NextResponse.json(EMPTY_RESPONSE);
 
   const { searchParams } = new URL(request.url);
-  const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
-  const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString());
+
+  // 🛡️ Validar year/month dentro de rangos razonables
+  const yearRaw = parseInt(searchParams.get("year") || "");
+  const monthRaw = parseInt(searchParams.get("month") || "");
+
+  const year = isNaN(yearRaw) ? new Date().getFullYear() : yearRaw;
+  const month = isNaN(monthRaw) ? new Date().getMonth() + 1 : monthRaw;
+
+  if (year < 2020 || year > 2100) {
+    return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+  }
+  if (month < 1 || month > 12) {
+    return NextResponse.json({ error: "Invalid month" }, { status: 400 });
+  }
 
   const startOfMonth = new Date(year, month - 1, 1);
   const endOfMonth = new Date(year, month, 0, 23, 59, 59);

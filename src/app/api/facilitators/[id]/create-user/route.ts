@@ -1,35 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-auth";
 import bcrypt from "bcryptjs";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  const user = session?.user as any;
-  if (!user || user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  const { error } = await requireRole(["ADMIN"]);
+  if (error) return error;
 
   const { id } = await params;
   const facilitator = await prisma.facilitator.findUnique({ where: { id } });
-  if (!facilitator) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (!facilitator) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   if (facilitator.userId) {
-    return NextResponse.json({ error: "Este facilitador ya tiene una cuenta" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Este facilitador ya tiene una cuenta" },
+      { status: 400 }
+    );
   }
 
   const { email, password } = await req.json();
-  if (!email || !password) {
-    return NextResponse.json({ error: "Email y contraseña son requeridos" }, { status: 400 });
+
+  // Validación de input
+  if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Email válido es requerido" }, { status: 400 });
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "La contraseña debe tener al menos 6 caracteres" }, { status: 400 });
+  if (!password || typeof password !== "string") {
+    return NextResponse.json({ error: "Contraseña es requerida" }, { status: 400 });
+  }
+  if (password.length < 8) {
+    return NextResponse.json(
+      { error: "La contraseña debe tener al menos 8 caracteres" },
+      { status: 400 }
+    );
+  }
+  if (password.length > 128) {
+    return NextResponse.json(
+      { error: "La contraseña es demasiado larga" },
+      { status: 400 }
+    );
   }
 
+  const normalizedEmail = email.toLowerCase().trim();
+
   // Check email not already taken
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     return NextResponse.json({ error: "Ese email ya está en uso" }, { status: 400 });
   }
@@ -37,7 +56,7 @@ export async function POST(
   const hashed = await bcrypt.hash(password, 10);
   const newUser = await prisma.user.create({
     data: {
-      email,
+      email: normalizedEmail,
       password: hashed,
       name: facilitator.name,
       role: "FACILITATOR",
