@@ -21,7 +21,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Rate limit by email (server-side enforcement)
         const emailKey = `auth:${(credentials.email as string).toLowerCase()}`;
-        const { allowed } = checkRateLimit(emailKey, {
+        const { allowed } = await checkRateLimit(emailKey, {
           maxAttempts: 5,
           windowMs: 15 * 60 * 1000,
           blockDurationMs: 15 * 60 * 1000,
